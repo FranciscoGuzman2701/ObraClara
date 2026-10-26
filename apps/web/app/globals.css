@@ -1,0 +1,97 @@
+:root {
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --text: #1b1f24;
+  --muted: #5f6b7a;
+  --border: #e2e6eb;
+  --accent: #1f5fbf;
+  --verde: #1e8e4a;
+  --amarillo: #b7791f;
+  --rojo: #c53030;
+  --verde-bg: #e6f4ec;
+  --amarillo-bg: #fdf3e1;
+  --rojo-bg: #fbe9e9;
+  --fisico: #1f5fbf;
+  --financiero: #d9822b;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111418;
+    --panel: #1a1e24;
+    --text: #e7eaee;
+    --muted: #9aa5b1;
+    --border: #2c323a;
+    --accent: #6ea8ff;
+    --verde: #48bb78;
+    --amarillo: #ecc94b;
+    --rojo: #fc8181;
+    --verde-bg: #1c3326;
+    --amarillo-bg: #3a3118;
+    --rojo-bg: #3b1f1f;
+    --fisico: #6ea8ff;
+    --financiero: #f6ad55;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+header.barra {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 24px; background: var(--panel); border-bottom: 1px solid var(--border);
+}
+header.barra strong { font-size: 16px; }
+main { max-width: 1280px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+h2 { font-size: 16px; margin: 28px 0 12px; }
+.sub { color: var(--muted); margin: 0 0 16px; }
+.tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.tarjeta { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.tarjeta .et { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.tarjeta .val { font-size: 22px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.tabla-wrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+th { font-size: 12px; color: var(--muted); font-weight: 600; background: var(--panel); position: sticky; top: 0; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+tr.partida td { font-weight: 600; background: color-mix(in srgb, var(--border) 35%, transparent); }
+tr.linea td { color: var(--muted); font-size: 13px; }
+tr.linea td:first-child { padding-left: 32px; }
+.chip { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.chip.VERDE { color: var(--verde); background: var(--verde-bg); }
+.chip.AMARILLO { color: var(--amarillo); background: var(--amarillo-bg); }
+.chip.ROJO { color: var(--rojo); background: var(--rojo-bg); }
+.neg { color: var(--rojo); }
+.medidores { display: grid; gap: 3px; min-width: 120px; }
+.medidor { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.medidor > span { display: block; height: 100%; }
+.medidor.f > span { background: var(--fisico); }
+.medidor.d > span { background: var(--financiero); }
+.leyenda { display: flex; gap: 16px; color: var(--muted); font-size: 12px; margin: 8px 0; }
+.leyenda i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+form.acciones { display: inline; }
+button, .boton {
+  font: inherit; cursor: pointer; border-radius: 8px; padding: 7px 14px;
+  border: 1px solid var(--border); background: var(--panel); color: var(--text);
+}
+button.primario { background: var(--accent); border-color: var(--accent); color: #fff; }
+input, select, textarea {
+  font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--panel); color: var(--text); width: 100%;
+}
+.login { max-width: 380px; margin: 12vh auto; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 28px; }
+.login label { display: block; margin: 16px 0 6px; color: var(--muted); }
+.error { color: var(--rojo); background: var(--rojo-bg); padding: 8px 12px; border-radius: 8px; margin: 12px 0; }
+.motivos { margin: 4px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; white-space: normal; }
+.vacio { color: var(--muted); padding: 24px; text-align: center; }
+@media (max-width: 640px) {
+  header.barra { padding: 12px 16px; }
+  .tarjeta .val { font-size: 18px; }
+}
