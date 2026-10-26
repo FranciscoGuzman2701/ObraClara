@@ -13,11 +13,10 @@
 --
 --     disponible = vigente - (reservado + comprometido + ejercido)
 --
--- Este archivo es ejecutable de principio a fin en una base vacía:
---     createdb obraclara && psql -d obraclara -v ON_ERROR_STOP=1 -f schema.sql
+-- Migración inicial. Se aplica con el runner de packages/db:
+--     pnpm db:migrate   (el runner envuelve cada migración en una transacción)
 -- =============================================================================
 
-BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;   -- gen_random_uuid()
 
@@ -1314,4 +1313,3 @@ END $$;
 -- Nota: el owner de las tablas (migraciones) no está sujeto a RLS. La API se
 -- conecta con un rol sin BYPASSRLS y ejecuta SET LOCAL oc.empresa_id = '<uuid>'.
 
-COMMIT;

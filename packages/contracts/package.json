@@ -1,0 +1,21 @@
+{
+  "name": "@obraclara/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Esquemas (zod) y tipos compartidos entre API, web y app de campo",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test dist/*.test.js"
+  },
+  "dependencies": {
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "typescript": "~5.9.3"
+  }
+}

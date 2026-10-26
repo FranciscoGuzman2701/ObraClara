@@ -1,0 +1,17 @@
+{
+  "name": "@obraclara/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": { ".": "./src/index.mjs" },
+  "scripts": {
+    "migrate": "node src/cli.mjs migrate",
+    "seed": "node src/cli.mjs seed",
+    "demo": "node src/cli.mjs demo",
+    "test": "node src/cli.mjs test"
+  },
+  "dependencies": {
+    "pg": "^8.16.0"
+  }
+}
