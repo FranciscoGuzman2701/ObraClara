@@ -35,8 +35,10 @@ export function calcularSemaforo(
   const importe = Math.round(e.cantidad * e.precio * 100) / 100;
   const pctCant = e.cantidad_vigente > 0
     ? (100 * (e.cantidad_vigente - e.cant_disponible + e.cantidad)) / e.cantidad_vigente : 999;
+  // importe_vigente = 0 con precio 0: el usuario no ve importes (cabo); sólo se evalúa volumen
   const pctImp = e.importe_vigente > 0
-    ? (100 * (e.importe_vigente - e.imp_disponible + importe)) / e.importe_vigente : 999;
+    ? (100 * (e.importe_vigente - e.imp_disponible + importe)) / e.importe_vigente
+    : importe === 0 ? 0 : 999;
   const pctPrecio = e.precio_vigente > 0 ? (100 * (e.precio - e.precio_vigente)) / e.precio_vigente : 0;
 
   const motivos: string[] = [];

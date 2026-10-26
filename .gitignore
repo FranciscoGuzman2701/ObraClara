@@ -10,3 +10,5 @@ coverage/
 !.env.example
 ios/
 android/
+next-env.d.ts
+*.tsbuildinfo

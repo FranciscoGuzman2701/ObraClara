@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "ObraClara Campo",
+    "slug": "obraclara-campo",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "mx.obraclara.campo",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Para tomar las fotos de evidencia de avances y recepciones.",
+        "NSLocationWhenInUseUsageDescription": "Para verificar que la evidencia se tomó dentro de la obra."
+      }
+    },
+    "android": {
+      "package": "mx.obraclara.campo",
+      "permissions": ["CAMERA", "ACCESS_FINE_LOCATION"]
+    },
+    "plugins": ["expo-sqlite", "expo-secure-store"]
+  }
+}

@@ -30,3 +30,9 @@ test('AMARILLO por precio 10% arriba', () => {
   const r = calcularSemaforo({ ...base, cantidad: 10, precio: 2200 });
   assert.equal(r.resultado, 'AMARILLO');
 });
+
+test('sin importes visibles (cabo) sólo evalúa volumen', () => {
+  const r = calcularSemaforo({ ...base, importe_vigente: 0, imp_disponible: 0, precio_vigente: 0, precio: 0, cantidad: 40 });
+  assert.equal(r.resultado, 'VERDE');
+  assert.equal(r.pct_consumo_importe, 0);
+});
