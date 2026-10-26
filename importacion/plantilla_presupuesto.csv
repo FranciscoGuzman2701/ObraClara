@@ -1,0 +1,13 @@
+nivel,clave,descripcion,unidad,cantidad,pu_costo,pu_venta,insumo_clave,insumo_descripcion,insumo_tipo,insumo_unidad,insumo_cantidad_por_unidad,insumo_precio
+PARTIDA,01,Preliminares,,,,,,,,,,
+CONCEPTO,01.001,Trazo y nivelación con equipo topográfico,m2,850,18.50,24.00,,,,,,
+INSUMO,01.001,,,,,,MO-TOPO,Cuadrilla de topografía,MANO_OBRA,m2,1,12.00
+INSUMO,01.001,,,,,,EQ-ESTACION,Estación total (renta),EQUIPO,m2,1,6.50
+PARTIDA,03,Estructura,,,,,,,,,,
+PARTIDA,03.01,Losas,,,,,,,,,,
+CONCEPTO,03.01.001,Losa maciza f'c=250 kg/cm2 de 12 cm,m3,100,2700.00,3600.00,,,,,,
+INSUMO,03.01.001,,,,,,CON-250,Concreto premezclado f'c=250,MATERIAL,m3,1.05,2000.00
+INSUMO,03.01.001,,,,,,MO-LOSA,Destajo colado de losa,MANO_OBRA,m3,1,600.00
+CONCEPTO,03.01.002,Acero de refuerzo fy=4200 en losa,kg,7800,24.90,31.50,,,,,,
+INSUMO,03.01.002,,,,,,AC-3/8,Varilla corrugada 3/8",MATERIAL,kg,1.07,19.00
+INSUMO,03.01.002,,,,,,MO-ARMADO,Destajo habilitado y armado,MANO_OBRA,kg,1,4.57
