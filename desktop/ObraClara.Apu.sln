@@ -1,0 +1,57 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{5073E2CC-E221-4134-AE49-B09FA7ABF2E1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ObraClara.Apu.Application", "src\ObraClara.Apu.Application\ObraClara.Apu.Application.csproj", "{FEEAFB09-7F70-4111-AAF9-B23DB1859C90}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ObraClara.Apu.Domain", "src\ObraClara.Apu.Domain\ObraClara.Apu.Domain.csproj", "{D646709C-C19F-4876-8DB4-9C904713370C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ObraClara.Apu.Infrastructure", "src\ObraClara.Apu.Infrastructure\ObraClara.Apu.Infrastructure.csproj", "{6D3517B1-A460-4086-BB50-F6DE914346F2}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{B96FB6A2-0179-4AD1-B799-495A69C91F4D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ObraClara.Apu.Domain.Tests", "tests\ObraClara.Apu.Domain.Tests\ObraClara.Apu.Domain.Tests.csproj", "{473D8D82-B26E-45BC-A9AF-1CA72E986AF0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ObraClara.Apu.Infrastructure.Tests", "tests\ObraClara.Apu.Infrastructure.Tests\ObraClara.Apu.Infrastructure.Tests.csproj", "{325FCC1C-00CD-4FDC-8780-F4DAB141C1B4}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FEEAFB09-7F70-4111-AAF9-B23DB1859C90}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FEEAFB09-7F70-4111-AAF9-B23DB1859C90}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FEEAFB09-7F70-4111-AAF9-B23DB1859C90}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FEEAFB09-7F70-4111-AAF9-B23DB1859C90}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D646709C-C19F-4876-8DB4-9C904713370C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D646709C-C19F-4876-8DB4-9C904713370C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D646709C-C19F-4876-8DB4-9C904713370C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D646709C-C19F-4876-8DB4-9C904713370C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6D3517B1-A460-4086-BB50-F6DE914346F2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6D3517B1-A460-4086-BB50-F6DE914346F2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6D3517B1-A460-4086-BB50-F6DE914346F2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6D3517B1-A460-4086-BB50-F6DE914346F2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{473D8D82-B26E-45BC-A9AF-1CA72E986AF0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{473D8D82-B26E-45BC-A9AF-1CA72E986AF0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{473D8D82-B26E-45BC-A9AF-1CA72E986AF0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{473D8D82-B26E-45BC-A9AF-1CA72E986AF0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{325FCC1C-00CD-4FDC-8780-F4DAB141C1B4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{325FCC1C-00CD-4FDC-8780-F4DAB141C1B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{325FCC1C-00CD-4FDC-8780-F4DAB141C1B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{325FCC1C-00CD-4FDC-8780-F4DAB141C1B4}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{FEEAFB09-7F70-4111-AAF9-B23DB1859C90} = {5073E2CC-E221-4134-AE49-B09FA7ABF2E1}
+		{D646709C-C19F-4876-8DB4-9C904713370C} = {5073E2CC-E221-4134-AE49-B09FA7ABF2E1}
+		{6D3517B1-A460-4086-BB50-F6DE914346F2} = {5073E2CC-E221-4134-AE49-B09FA7ABF2E1}
+		{473D8D82-B26E-45BC-A9AF-1CA72E986AF0} = {B96FB6A2-0179-4AD1-B799-495A69C91F4D}
+		{325FCC1C-00CD-4FDC-8780-F4DAB141C1B4} = {B96FB6A2-0179-4AD1-B799-495A69C91F4D}
+	EndGlobalSection
+EndGlobal

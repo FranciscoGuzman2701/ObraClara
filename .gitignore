@@ -12,3 +12,9 @@ ios/
 android/
 next-env.d.ts
 *.tsbuildinfo
+# .NET
+bin/
+obj/
+*.user
+.vs/
+TestResults/

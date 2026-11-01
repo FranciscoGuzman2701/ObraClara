@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\ObraClara.Apu.Domain\ObraClara.Apu.Domain.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Dominio puro: sin dependencias externas. Aquí viven las reglas matemáticas. -->
+  <PropertyGroup>
+    <RootNamespace>ObraClara.Apu.Domain</RootNamespace>
+  </PropertyGroup>
+</Project>
