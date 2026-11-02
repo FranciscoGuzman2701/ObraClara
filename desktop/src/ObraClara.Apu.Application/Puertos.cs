@@ -1,3 +1,4 @@
+using ObraClara.Apu.Domain.Analisis;
 using ObraClara.Apu.Domain.Catalogo;
 using ObraClara.Apu.Domain.Presupuestos;
 
@@ -9,6 +10,14 @@ public sealed record CostoGuardado(int InsumoId, decimal Material, decimal ManoO
 
 public sealed record PartidaCalculada(int PartidaId, int? PadreId, TipoPartida Tipo, string Clave, string Descripcion,
     string? ConceptoClave, string? Unidad, decimal? Cantidad, decimal? CostoDirectoUnitario, decimal? PrecioUnitario, decimal Importe);
+
+/// <summary>Captura de avance de un departamento (con fecha y origen para la bitácora).</summary>
+public sealed record RegistroAvance(DateOnly Fecha, int PartidaId, decimal CantidadEjecutada, decimal CostoReal, Departamento Departamento, string? Nota = null);
+
+public sealed record RegistroConsumo(DateOnly Fecha, int InsumoId, decimal Cantidad, Departamento Departamento, string? Referencia = null);
+
+/// <summary>Departamentos que alimentan la base (coinciden con apu.Departamentos).</summary>
+public enum Departamento : byte { Presupuestos = 1, Obra = 2, Almacen = 3, Compras = 4, Finanzas = 5, Direccion = 6 }
 
 /// <summary>Persistencia del catálogo y los presupuestos (implementación: SQL Server).</summary>
 public interface IRepositorioApu
@@ -25,6 +34,11 @@ public interface IRepositorioApu
     /// <summary>Herramienta menor y equipo de seguridad de un compuesto (fracciones), con cascada.</summary>
     Task ActualizarCargosAsync(int compuestoId, decimal tasaHerramienta, decimal tasaEquipoSeguridad, CancellationToken ct = default);
     Task RecalcularTodoAsync(CancellationToken ct = default);
+
+    /// <summary>Avances (obra), costos reales (compras/finanzas) y consumos (almacén) acumulados del presupuesto.</summary>
+    Task<DatosControl> CargarControlAsync(int presupuestoId, CancellationToken ct = default);
+    Task RegistrarControlAsync(int presupuestoId, IReadOnlyList<RegistroAvance> avances, IReadOnlyList<RegistroConsumo> consumos,
+        CancellationToken ct = default);
 
     Task<IReadOnlyList<PartidaCalculada>> CalcularPresupuestoAsync(int presupuestoId, CancellationToken ct = default);
     Task<ResultadoExplosion> ExplosionAsync(int presupuestoId, CancellationToken ct = default);

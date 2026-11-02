@@ -1,4 +1,6 @@
+using ObraClara.Apu.Application.Reportes;
 using ObraClara.Apu.Domain;
+using ObraClara.Apu.Domain.Analisis;
 using ObraClara.Apu.Domain.Calculo;
 using ObraClara.Apu.Domain.Catalogo;
 using ObraClara.Apu.Domain.Presupuestos;
@@ -15,11 +17,12 @@ public sealed class SesionCatalogo
 {
     private readonly IRepositorioApu? _repositorio;
 
-    private SesionCatalogo(CatalogoInsumos catalogo, IRepositorioApu? repositorio, Presupuesto? presupuesto)
+    private SesionCatalogo(CatalogoInsumos catalogo, IRepositorioApu? repositorio, Presupuesto? presupuesto, DatosControl? control)
     {
         Catalogo = catalogo;
         _repositorio = repositorio;
         Presupuesto = presupuesto;
+        Control = control ?? DatosControl.Vacio;
         Costos = MotorCostos.CalcularTodo(catalogo);
     }
 
@@ -27,19 +30,23 @@ public sealed class SesionCatalogo
     public ResultadoCostos Costos { get; private set; }
     public Presupuesto? Presupuesto { get; private set; }
     public bool Persistente => _repositorio is not null;
+    /// <summary>Avances, costos reales y consumos que reportaron los departamentos.</summary>
+    public DatosControl Control { get; private set; }
 
     /// <summary>Insumos cuyo costo cambió (en orden de cálculo) tras la última operación.</summary>
     public event Action<IReadOnlyList<int>>? CostosActualizados;
     /// <summary>Se recargó todo (p. ej. tras un rechazo del servidor).</summary>
     public event Action? Recargado;
 
-    public static SesionCatalogo EnMemoria(CatalogoInsumos catalogo, Presupuesto? presupuesto = null) => new(catalogo, null, presupuesto);
+    public static SesionCatalogo EnMemoria(CatalogoInsumos catalogo, Presupuesto? presupuesto = null, DatosControl? control = null) =>
+        new(catalogo, null, presupuesto, control);
 
     public static async Task<SesionCatalogo> AbrirAsync(IRepositorioApu repositorio, int? presupuestoId, CancellationToken ct = default)
     {
         var catalogo = await repositorio.CargarCatalogoAsync(ct);
         var presupuesto = presupuestoId is { } id ? await repositorio.CargarPresupuestoAsync(id, catalogo, ct) : null;
-        return new SesionCatalogo(catalogo, repositorio, presupuesto);
+        var control = presupuesto is null ? null : await repositorio.CargarControlAsync(presupuesto.Id, ct);
+        return new SesionCatalogo(catalogo, repositorio, presupuesto, control);
     }
 
     public Task CambiarPrecioAsync(int insumoId, decimal precio) =>
@@ -72,6 +79,36 @@ public sealed class SesionCatalogo
     public ResultadoPresupuesto? CalcularPresupuesto() =>
         Presupuesto is null ? null : CalculadoraPresupuesto.Calcular(Presupuesto, Costos);
 
+    /// <summary>Dónde gana y pierde la obra, alcance y desperdicio, con lo capturado hasta hoy.</summary>
+    public ResultadoAnalisis? Analizar() =>
+        Presupuesto is null ? null : AnalizadorObra.Analizar(Presupuesto, Catalogo, Costos, Control);
+
+    /// <summary>
+    /// Importa un CSV de avances o consumos. Si hay errores no importa nada (todo o nada)
+    /// y los devuelve para corregir el archivo.
+    /// </summary>
+    public async Task<ImportadorControl.Resultado> ImportarControlAsync(string csv, Departamento? departamento = null)
+    {
+        if (Presupuesto is null) throw new ReglaDeNegocioException("No hay presupuesto abierto");
+        var r = ImportadorControl.Leer(csv, Presupuesto, Catalogo, departamento);
+        if (r.Errores.Count > 0 || r.Avances.Count + r.Consumos.Count == 0) return r;
+        if (_repositorio is not null)
+        {
+            await _repositorio.RegistrarControlAsync(Presupuesto.Id, r.Avances, r.Consumos);
+            Control = await _repositorio.CargarControlAsync(Presupuesto.Id);
+        }
+        else
+        {
+            Control = new DatosControl(
+                [.. Control.Avances, .. r.Avances.Select(a => new AvanceConcepto(a.PartidaId, a.CantidadEjecutada, a.CostoReal))],
+                [.. Control.Consumos, .. r.Consumos.Select(c => new ConsumoMaterial(c.InsumoId, c.Cantidad))]);
+        }
+        ControlActualizado?.Invoke();
+        return r;
+    }
+
+    public event Action? ControlActualizado;
+
     public ResultadoExplosion? Explosionar() =>
         Presupuesto is null ? null : CalculadoraPresupuesto.Explosionar(Presupuesto, Catalogo, Costos);
 
@@ -96,7 +133,11 @@ public sealed class SesionCatalogo
     {
         if (_repositorio is null) return;
         Catalogo = await _repositorio.CargarCatalogoAsync();
-        if (Presupuesto is not null) Presupuesto = await _repositorio.CargarPresupuestoAsync(Presupuesto.Id, Catalogo);
+        if (Presupuesto is not null)
+        {
+            Presupuesto = await _repositorio.CargarPresupuestoAsync(Presupuesto.Id, Catalogo);
+            Control = await _repositorio.CargarControlAsync(Presupuesto.Id);
+        }
         Costos = MotorCostos.CalcularTodo(Catalogo);
         Recargado?.Invoke();
     }

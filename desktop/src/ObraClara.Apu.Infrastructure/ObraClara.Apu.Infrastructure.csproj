@@ -2,6 +2,7 @@
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.1.35" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+    <PackageReference Include="QuestPDF" Version="2026.7.3" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ObraClara.Apu.Application\ObraClara.Apu.Application.csproj" />

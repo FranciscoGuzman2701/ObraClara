@@ -9,7 +9,8 @@ Aplicación de escritorio para Windows para presupuestar obra con **análisis de
 | Datos de ejemplo (vivienda) · prueba de carga (40,000 insumos) | [`db/03_datos_ejemplo.sql`](../db/03_datos_ejemplo.sql) · [`db/04_carga_rendimiento.sql`](../db/04_carga_rendimiento.sql) |
 | Dominio C#: entidades y calculadoras | [`src/ObraClara.Apu.Domain`](../src/ObraClara.Apu.Domain) |
 | Interfaz Avalonia con grilla tipo hoja de cálculo | [`src/ObraClara.Apu.Desktop`](../src/ObraClara.Apu.Desktop) |
-| Pruebas (42) | [`tests/`](../tests) |
+| Análisis de obra, PDF/CSV, conexión de departamentos | [`ANALISIS_Y_DEPARTAMENTOS.md`](ANALISIS_Y_DEPARTAMENTOS.md) · [`db/05_control_obra.sql`](../db/05_control_obra.sql) |
+| Pruebas (54) | [`tests/`](../tests) |
 
 ---
 
@@ -262,13 +263,13 @@ Medido en un contenedor Linux de 4 núcleos con SQL Server 2022.
 
 Los catálogos de prueba de C# y de SQL son sintéticos y distintos, por eso los conteos de la cascada difieren. Para reproducirlo: `RendimientoTests` y `db/04_carga_rendimiento.sql`.
 
-## 6. Pruebas (42)
+## 6. Pruebas (54)
 
 | Proyecto | Qué cubre |
 |---|---|
-| `Domain.Tests` (19) | FSR, costo horario y sobrecostos **verificados a mano**; herramienta sin doble cobro; cascada incremental (sólo afectados, en orden); ciclos con ruta; 20,000 niveles sin desbordar; reglas de tipo; presupuesto y explosión con su invariante; rendimiento. |
-| `Infrastructure.Tests` (7, contra SQL Server real) | Que **SQL y C# coincidan** en cada insumo, presupuesto y explosión; que el script de datos sea igual al catálogo de ejemplo; la cascada por precio, por matriz y por herramienta; y que el trigger rechace ciclos y conceptos como componente. |
-| `Desktop.Tests` (16, Avalonia sin pantalla) | Recálculo reactivo en la vista; captura de claves; rechazo de ciclos; teclado en la grilla (escribir sobre una celda, Enter, Tab y Shift+Tab, nuevo renglón, Supr y Esc); navegación entre matrices con F4 y Esc; buscador F3; F1 y F9. |
+| `Domain.Tests` (24) | FSR, costo horario y sobrecostos **verificados a mano**; herramienta sin doble cobro; cascada incremental (sólo afectados, en orden); ciclos con ruta; 20,000 niveles sin desbordar; reglas de tipo; presupuesto y explosión con su invariante; rendimiento. |
+| `Infrastructure.Tests` (11, contra SQL Server real) | Que **SQL y C# coincidan** en cada insumo, presupuesto, explosión y análisis de obra; PDF y CSV; importación de avances con validación por línea; que el script de datos sea igual al catálogo de ejemplo; la cascada por precio, por matriz y por herramienta; y que el trigger rechace ciclos y conceptos como componente. |
+| `Desktop.Tests` (19, Avalonia sin pantalla) | Recálculo reactivo en la vista; tablero de análisis, exportación e importación; captura de claves; rechazo de ciclos; teclado en la grilla (escribir sobre una celda, Enter, Tab y Shift+Tab, nuevo renglón, Supr y Esc); navegación entre matrices con F4 y Esc; buscador F3; F1 y F9. |
 
 ## 7. Pendiente / siguiente iteración
 

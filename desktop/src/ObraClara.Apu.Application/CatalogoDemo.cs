@@ -1,3 +1,4 @@
+using ObraClara.Apu.Domain.Analisis;
 using ObraClara.Apu.Domain.Calculo;
 using ObraClara.Apu.Domain.Catalogo;
 using ObraClara.Apu.Domain.Presupuestos;
@@ -128,4 +129,22 @@ public static class CatalogoDemo
         p.Agregar(new() { Id = 7, PadreId = 6, Tipo = TipoPartida.Concepto, Clave = "02.02.01", Orden = 1, InsumoId = 52, Cantidad = 420m, Descripcion = "Aplanados" }, catalogo);
         return p;
     }
+
+    /// <summary>
+    /// Avance de obra de ejemplo (mismo contenido que db/05_control_obra.sql):
+    /// el firme terminó con sobrecosto, el muro va bien al 67 % y el aplanado se pasó del alcance.
+    /// </summary>
+    public static DatosControl CrearControl() => new(
+        [
+            new AvanceConcepto(2, 85m, 24_500m),     // firme 100 %
+            new AvanceConcepto(5, 140m, 66_000m),    // muros 67 %
+            new AvanceConcepto(7, 460m, 92_000m),    // aplanado 110 %: 40 m² fuera de alcance
+        ],
+        [
+            new ConsumoMaterial(1, 8.10m),     // cemento
+            new ConsumoMaterial(2, 19.80m),    // arena
+            new ConsumoMaterial(3, 6.20m),     // grava
+            new ConsumoMaterial(4, 5.60m),     // agua
+            new ConsumoMaterial(5, 8_350m),    // tabique
+        ]);
 }

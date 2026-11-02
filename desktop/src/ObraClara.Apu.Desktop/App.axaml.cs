@@ -39,7 +39,8 @@ public partial class App : Avalonia.Application
         if (string.IsNullOrWhiteSpace(cadena))
         {
             var catalogo = CatalogoDemo.Crear();
-            return new MainWindowViewModel(SesionCatalogo.EnMemoria(catalogo, CatalogoDemo.CrearPresupuesto(catalogo)), "catálogo de ejemplo (sin base de datos)");
+            return new MainWindowViewModel(SesionCatalogo.EnMemoria(catalogo, CatalogoDemo.CrearPresupuesto(catalogo), CatalogoDemo.CrearControl()),
+                "catálogo de ejemplo (sin base de datos)");
         }
         var sesion = await SesionCatalogo.AbrirAsync(new RepositorioSqlServer(cadena), presupuestoId: 1);
         return new MainWindowViewModel(sesion, "SQL Server");

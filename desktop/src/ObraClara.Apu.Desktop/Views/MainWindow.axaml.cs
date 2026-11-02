@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using ObraClara.Apu.Desktop.Comportamientos;
 using ObraClara.Apu.Desktop.ViewModels;
@@ -66,8 +67,11 @@ public partial class MainWindow : Window
                 vm.PestanaActiva = 0;
                 Buscar.Focus();
                 break;
-            case Key.D1 or Key.D2 or Key.D3 when ctrl:
+            case Key.D1 or Key.D2 or Key.D3 or Key.D4 when ctrl:
                 vm.PestanaActiva = e.Key - Key.D1;
+                break;
+            case Key.P when ctrl:
+                _ = ExportarAsync(TipoExportacion.ReportePdf);
                 break;
             default:
                 return;
@@ -102,6 +106,58 @@ public partial class MainWindow : Window
                 return;
         }
         e.Handled = true;
+    }
+
+    private void Exportar(object? sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { Tag: string tag } && Enum.TryParse<TipoExportacion>(tag, out var tipo)) _ = ExportarAsync(tipo);
+    }
+
+    /// <summary>Pide dónde guardar y escribe el PDF o CSV.</summary>
+    private async Task ExportarAsync(TipoExportacion tipo)
+    {
+        if (Vm is not { } vm) return;
+        var pdf = tipo == TipoExportacion.ReportePdf;
+        var archivo = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = pdf ? "Guardar reporte de obra" : "Guardar datos para análisis",
+            SuggestedFileName = MainWindowViewModel.NombreSugerido(tipo, vm.ClaveObra),
+            DefaultExtension = pdf ? "pdf" : "csv",
+            FileTypeChoices = [pdf
+                ? new FilePickerFileType("PDF") { Patterns = ["*.pdf"], MimeTypes = ["application/pdf"] }
+                : new FilePickerFileType("CSV (Excel, Power BI)") { Patterns = ["*.csv"], MimeTypes = ["text/csv"] }],
+        });
+        if (archivo is null) return;
+        try
+        {
+            var contenido = vm.Exportar(tipo);
+            await using var flujo = await archivo.OpenWriteAsync();
+            await flujo.WriteAsync(contenido);
+            vm.Error = null;
+            vm.Mensaje = $"Guardado: {archivo.Name}";
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            vm.Error = $"No se pudo guardar {archivo.Name}: {ex.Message}";
+        }
+    }
+
+    private async void Importar(object? sender, RoutedEventArgs e)
+    {
+        if (Vm is not { } vm) return;
+        var archivos = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Importar avances o consumos (CSV)",
+            AllowMultiple = true,
+            FileTypeFilter = [new FilePickerFileType("CSV") { Patterns = ["*.csv", "*.txt"] }],
+        });
+        foreach (var archivo in archivos)
+        {
+            await using var flujo = await archivo.OpenReadAsync();
+            using var lector = new StreamReader(flujo);
+            await vm.ImportarCsvAsync(await lector.ReadToEndAsync(), archivo.Name);
+        }
+        if (archivos.Count > 0) vm.PestanaActiva = 3;
     }
 
     private void CerrarAtajos(object? sender, PointerPressedEventArgs e)

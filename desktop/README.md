@@ -4,6 +4,7 @@ Presupuestación con análisis de precios unitarios para Windows: catálogo de i
 
 **Stack:** C# .NET 8 · Avalonia 11 (MVVM) · SQL Server 2019+ · Clean Architecture.
 Diseño completo, fórmulas y decisiones: [`docs/ARQUITECTURA.md`](docs/ARQUITECTURA.md).
+Análisis de obra (dónde gana y pierde, alcance, desperdicio), PDF/CSV y conexión de departamentos: [`docs/ANALISIS_Y_DEPARTAMENTOS.md`](docs/ANALISIS_Y_DEPARTAMENTOS.md).
 
 ```
 src/
@@ -11,7 +12,7 @@ src/
   ObraClara.Apu.Application     casos de uso, puertos, catálogo de ejemplo
   ObraClara.Apu.Infrastructure  repositorio SQL Server (Dapper)
   ObraClara.Apu.Desktop         interfaz Avalonia (ejecutable ObraClaraPU.exe)
-db/                             01 esquema · 02 procedimientos · 03 datos de ejemplo · 04 prueba de carga
+db/                             01 esquema · 02 procedimientos · 03 datos de ejemplo · 04 prueba de carga · 05 control de obra
 tests/                          dominio · SQL Server · interfaz sin pantalla
 ```
 
@@ -29,6 +30,7 @@ tests/                          dominio · SQL Server · interfaz sin pantalla
    sqlcmd -S "(localdb)\MSSQLLocalDB" -d ObraClaraApu -f 65001 -i db\01_esquema.sql
    sqlcmd -S "(localdb)\MSSQLLocalDB" -d ObraClaraApu -f 65001 -i db\02_programabilidad.sql
    sqlcmd -S "(localdb)\MSSQLLocalDB" -d ObraClaraApu -f 65001 -i db\03_datos_ejemplo.sql
+   sqlcmd -S "(localdb)\MSSQLLocalDB" -d ObraClaraApu -f 65001 -i db\05_control_obra.sql
    dotnet run --project src/ObraClara.Apu.Desktop -- --sql "Server=(localdb)\MSSQLLocalDB;Database=ObraClaraApu;Trusted_Connection=True;TrustServerCertificate=True"
    ```
    También puede definir la variable `OBRACLARA_PU_SQLSERVER` con la cadena de conexión.

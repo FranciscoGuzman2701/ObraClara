@@ -3,6 +3,7 @@ using Dapper;
 using Microsoft.Data.SqlClient;
 using ObraClara.Apu.Application;
 using ObraClara.Apu.Domain;
+using ObraClara.Apu.Domain.Analisis;
 using ObraClara.Apu.Domain.Calculo;
 using ObraClara.Apu.Domain.Catalogo;
 using ObraClara.Apu.Domain.Presupuestos;
@@ -176,6 +177,40 @@ public sealed class RepositorioSqlServer(string cadenaConexion) : IRepositorioAp
     public Task RecalcularTodoAsync(CancellationToken ct = default) =>
         EjecutarAsync(cn => cn.ExecuteAsync(new CommandDefinition("apu.usp_RecalcularTodo",
             commandType: CommandType.StoredProcedure, commandTimeout: 600, cancellationToken: ct)), ct);
+
+    public async Task<DatosControl> CargarControlAsync(int presupuestoId, CancellationToken ct = default)
+    {
+        await using var cn = await AbrirAsync(ct);
+        await using var grid = await cn.QueryMultipleAsync(new CommandDefinition(
+            "SELECT PartidaId, SUM(CantidadEjecutada) AS Cantidad, SUM(CostoReal) AS Costo FROM apu.Control_Avances " +
+            "WHERE PresupuestoId = @presupuestoId GROUP BY PartidaId; " +
+            "SELECT InsumoId, SUM(Cantidad) AS Cantidad FROM apu.Control_Consumos WHERE PresupuestoId = @presupuestoId GROUP BY InsumoId;",
+            new { presupuestoId }, cancellationToken: ct));
+        var avances = (await grid.ReadAsync<(int PartidaId, decimal Cantidad, decimal Costo)>())
+            .Select(a => new AvanceConcepto(a.PartidaId, a.Cantidad, a.Costo)).ToList();
+        var consumos = (await grid.ReadAsync<(int InsumoId, decimal Cantidad)>())
+            .Select(c => new ConsumoMaterial(c.InsumoId, c.Cantidad)).ToList();
+        return new DatosControl(avances, consumos);
+    }
+
+    public Task RegistrarControlAsync(int presupuestoId, IReadOnlyList<RegistroAvance> avances, IReadOnlyList<RegistroConsumo> consumos,
+        CancellationToken ct = default) =>
+        EjecutarAsync(async cn =>
+        {
+            await using var tx = (SqlTransaction)await cn.BeginTransactionAsync(ct);
+            await cn.ExecuteAsync(new CommandDefinition(
+                "INSERT apu.Control_Avances (PresupuestoId, PartidaId, Fecha, CantidadEjecutada, CostoReal, DepartamentoId, Nota) " +
+                "VALUES (@presupuestoId, @PartidaId, @Fecha, @CantidadEjecutada, @CostoReal, @DepartamentoId, @Nota)",
+                avances.Select(a => new { presupuestoId, a.PartidaId, Fecha = a.Fecha.ToDateTime(TimeOnly.MinValue), a.CantidadEjecutada,
+                    a.CostoReal, DepartamentoId = (byte)a.Departamento, a.Nota }), tx, cancellationToken: ct));
+            await cn.ExecuteAsync(new CommandDefinition(
+                "INSERT apu.Control_Consumos (PresupuestoId, InsumoId, Fecha, Cantidad, DepartamentoId, Referencia) " +
+                "VALUES (@presupuestoId, @InsumoId, @Fecha, @Cantidad, @DepartamentoId, @Referencia)",
+                consumos.Select(c => new { presupuestoId, c.InsumoId, Fecha = c.Fecha.ToDateTime(TimeOnly.MinValue), c.Cantidad,
+                    DepartamentoId = (byte)c.Departamento, c.Referencia }), tx, cancellationToken: ct));
+            await tx.CommitAsync(ct);
+            return 0;
+        }, ct);
 
     public Task<IReadOnlyList<PartidaCalculada>> CalcularPresupuestoAsync(int presupuestoId, CancellationToken ct = default) =>
         EjecutarAsync<IReadOnlyList<PartidaCalculada>>(async cn =>

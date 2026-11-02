@@ -20,7 +20,7 @@ public sealed class BaseDePrueba : IAsyncLifetime
     {
         if (!Disponible) return;
         await EjecutarAsync(_servidor!, $"CREATE DATABASE [{_nombre}] COLLATE Modern_Spanish_CI_AS");
-        foreach (var archivo in new[] { "01_esquema.sql", "02_programabilidad.sql", "03_datos_ejemplo.sql" })
+        foreach (var archivo in new[] { "01_esquema.sql", "02_programabilidad.sql", "03_datos_ejemplo.sql", "05_control_obra.sql" })
             await AplicarScriptAsync(Path.Combine(AppContext.BaseDirectory, "db", archivo));
     }
 

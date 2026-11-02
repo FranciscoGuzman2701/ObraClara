@@ -139,7 +139,7 @@ public class TecladoTests
         if (ruta is null) return;
         cuadro!.Save(Path.Combine(ruta, "ventana-principal.png"));
         var pestanas = v.GetVisualDescendants().OfType<TabControl>().First();
-        foreach (var (indice, nombre) in new[] { (1, "presupuesto"), (2, "explosion") })
+        foreach (var (indice, nombre) in new[] { (1, "presupuesto"), (2, "explosion"), (3, "analisis") })
         {
             pestanas.SelectedIndex = indice;
             Dispatcher.UIThread.RunJobs();

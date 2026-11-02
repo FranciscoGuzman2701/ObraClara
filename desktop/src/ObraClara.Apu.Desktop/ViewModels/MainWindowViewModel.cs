@@ -3,6 +3,9 @@ using Avalonia.Collections;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ObraClara.Apu.Application;
+using ObraClara.Apu.Application.Reportes;
+using ObraClara.Apu.Domain.Analisis;
+using ObraClara.Apu.Infrastructure.Reportes;
 using ObraClara.Apu.Domain;
 using ObraClara.Apu.Domain.Calculo;
 using ObraClara.Apu.Domain.Catalogo;
@@ -34,6 +37,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         CargarCatalogo();
         sesion.CostosActualizados += AlActualizarCostos;
         sesion.Recargado += () => { CargarCatalogo(); RecargarComponentes(); };
+        sesion.ControlActualizado += RecalcularAnalisis;
     }
 
     public SesionCatalogo Sesion { get; }
@@ -45,6 +49,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public ObservableCollection<ComponenteFilaViewModel> Componentes { get; } = [];
     public ObservableCollection<PartidaFila> Partidas { get; } = [];
     public ObservableCollection<InsumoExplosionado> Explosion { get; } = [];
+    public ObservableCollection<BarraTablero> BarrasConceptos { get; } = [];
+    public ObservableCollection<BarraTablero> BarrasDesperdicio { get; } = [];
+    public ObservableCollection<AnalisisConcepto> AlcanceConceptos { get; } = [];
+
+    /// <summary>Último análisis de obra (avance, costo real y consumos contra el presupuesto).</summary>
+    [ObservableProperty] private ResultadoAnalisis? _analisis;
+    public bool HayAvances => Sesion.Control.Avances.Count > 0;
 
     [ObservableProperty] private string _busqueda = "";
     [ObservableProperty] private InsumoFilaViewModel? _seleccionado;
@@ -161,6 +172,68 @@ public sealed partial class MainWindowViewModel : ObservableObject
         foreach (var i in exp.Insumos) Explosion.Add(i);
         CostoDirectoObra = exp.CostoDirectoTotal;
         HerramientaExplosion = exp.Herramienta + exp.EquipoSeguridad;
+        RecalcularAnalisis();
+    }
+
+    private void RecalcularAnalisis()
+    {
+        BarrasConceptos.Clear();
+        BarrasDesperdicio.Clear();
+        AlcanceConceptos.Clear();
+        Analisis = Sesion.Analizar();
+        OnPropertyChanged(nameof(HayAvances));
+        if (Analisis is not { } a) return;
+        foreach (var b in Tablero.GananciasPerdidas(a)) BarrasConceptos.Add(b);
+        foreach (var b in Tablero.Desperdicio(a)) BarrasDesperdicio.Add(b);
+        foreach (var c in a.Conceptos) AlcanceConceptos.Add(c);
+    }
+
+    // ------------------------------------------------------------ descargas e importación
+
+    public static string NombreSugerido(TipoExportacion t, string obra) => t switch
+    {
+        TipoExportacion.ReportePdf => $"{obra}-reporte.pdf",
+        TipoExportacion.PresupuestoCsv => $"{obra}-presupuesto.csv",
+        TipoExportacion.ExplosionCsv => $"{obra}-explosion.csv",
+        TipoExportacion.AnalisisCsv => $"{obra}-analisis-conceptos.csv",
+        _ => $"{obra}-desperdicio.csv",
+    };
+
+    public string ClaveObra => Sesion.Presupuesto?.Clave ?? "obra";
+
+    /// <summary>Contenido del archivo a descargar (PDF o CSV para Excel / Power BI).</summary>
+    public byte[] Exportar(TipoExportacion tipo)
+    {
+        if (Sesion.Presupuesto is not { } p) throw new ReglaDeNegocioException("No hay presupuesto abierto");
+        var importes = Sesion.CalcularPresupuesto()!;
+        var analisis = Sesion.Analizar()!;
+        return tipo switch
+        {
+            TipoExportacion.ReportePdf => ReportePdf.Generar(new ReportePdf.Datos(p, Sesion.Catalogo, importes, Sesion.Explosionar()!,
+                HayAvances ? analisis : null, DateTime.Now)),
+            TipoExportacion.PresupuestoCsv => Csv.ABytes(ExportadorCsv.Presupuesto(p, Sesion.Catalogo, importes)),
+            TipoExportacion.ExplosionCsv => Csv.ABytes(ExportadorCsv.Explosion(Sesion.Explosionar()!)),
+            TipoExportacion.AnalisisCsv => Csv.ABytes(ExportadorCsv.AnalisisConceptos(analisis)),
+            _ => Csv.ABytes(ExportadorCsv.Desperdicio(analisis)),
+        };
+    }
+
+    /// <summary>Importa avances (obra/compras) o consumos (almacén) desde CSV.</summary>
+    public async Task ImportarCsvAsync(string texto, string nombreArchivo)
+    {
+        Error = null;
+        try
+        {
+            var r = await Sesion.ImportarControlAsync(texto);
+            if (r.Errores.Count > 0)
+                Error = $"{nombreArchivo}: no se importó nada, corrija {r.Errores.Count} línea(s). {string.Join(" · ", r.Errores.Take(3))}";
+            else
+                Mensaje = $"{nombreArchivo}: {r.Avances.Count} avance(s) y {r.Consumos.Count} consumo(s) importados";
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            Error = $"No se pudo importar {nombreArchivo}: {ex.Message}";
+        }
     }
 
     [RelayCommand]
