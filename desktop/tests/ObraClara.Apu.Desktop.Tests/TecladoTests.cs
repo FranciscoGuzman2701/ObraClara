@@ -88,7 +88,7 @@ public class TecladoTests
     {
         var (v, _, grid) = Abrir();
         Tecla(v, Key.Tab);
-        Assert.Equal("Rendimiento", grid.CurrentColumn.Header);
+        Assert.Equal("Rend.", grid.CurrentColumn.Header);
         Tecla(v, Key.Tab);
         Assert.Equal("Merma %", grid.CurrentColumn.Header);
         Tecla(v, Key.Tab);                                           // de la última editable a la primera del siguiente
@@ -146,5 +146,17 @@ public class TecladoTests
             v.UpdateLayout();
             v.CaptureRenderedFrame()!.Save(Path.Combine(ruta, $"{nombre}.png"));
         }
+        // matriz anidada abierta con F4 (se ve la ruta) y buscador F3
+        var vm = (MainWindowViewModel)v.DataContext!;
+        pestanas.SelectedIndex = 0;
+        vm.AbrirMatrizCommand.Execute(vm.Componentes.Single(c => c.Clave == "BAS-MOR14"));
+        Dispatcher.UIThread.RunJobs();
+        v.UpdateLayout();
+        v.CaptureRenderedFrame()!.Save(Path.Combine(ruta, "matriz-anidada.png"));
+        vm.AbrirBuscadorCommand.Execute(null);
+        vm.TextoBuscador = "a";
+        Dispatcher.UIThread.RunJobs();
+        v.UpdateLayout();
+        v.CaptureRenderedFrame()!.Save(Path.Combine(ruta, "buscador.png"));
     }
 }

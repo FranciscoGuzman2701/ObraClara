@@ -61,6 +61,14 @@ public sealed class SesionCatalogo
         AplicarAsync(compuestoId, () => Catalogo[compuestoId].FijarCargosSobreManoObra(herramienta, seguridad),
             r => r.ActualizarCargosAsync(compuestoId, herramienta, seguridad));
 
+    /// <summary>Recalcula todo el catálogo (F9): en memoria y, si hay base, también en el servidor.</summary>
+    public async Task RecalcularTodoAsync()
+    {
+        Costos = MotorCostos.CalcularTodo(Catalogo);
+        CostosActualizados?.Invoke(Catalogo.Insumos.Select(i => i.Id).ToList());
+        if (_repositorio is not null) await _repositorio.RecalcularTodoAsync();
+    }
+
     public ResultadoPresupuesto? CalcularPresupuesto() =>
         Presupuesto is null ? null : CalculadoraPresupuesto.Calcular(Presupuesto, Costos);
 

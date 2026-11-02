@@ -9,7 +9,7 @@ Aplicación de escritorio para Windows para presupuestar obra con **análisis de
 | Datos de ejemplo (vivienda) · prueba de carga (40,000 insumos) | [`db/03_datos_ejemplo.sql`](../db/03_datos_ejemplo.sql) · [`db/04_carga_rendimiento.sql`](../db/04_carga_rendimiento.sql) |
 | Dominio C#: entidades y calculadoras | [`src/ObraClara.Apu.Domain`](../src/ObraClara.Apu.Domain) |
 | Interfaz Avalonia con grilla tipo hoja de cálculo | [`src/ObraClara.Apu.Desktop`](../src/ObraClara.Apu.Desktop) |
-| Pruebas (37) | [`tests/`](../tests) |
+| Pruebas (42) | [`tests/`](../tests) |
 
 ---
 
@@ -212,7 +212,26 @@ Calculadoras auxiliares:
 | Errores de regla | Una cantidad negativa, un ciclo o una clave inexistente aparecen en la barra de estado. **Sólo ese renglón** vuelve a su valor guardado; el resto de la grilla no se recarga. |
 | Persistencia sin bloquear | La parte local es síncrona e inmediata, y la escritura a SQL Server termina en segundo plano. Si el servidor rechaza el cambio, se recarga desde la base para no divergir. |
 
-**Teclado** (`Comportamientos/NavegacionHojaCalculo.cs`, probado con teclado simulado):
+**Tema "ObraClara clásico".** La apariencia sigue la de los programas de precios unitarios de escritorio, con identidad propia de ObraClara (no usa marcas ni logotipos de terceros):
+- Paleta azul pizarra `#17375E` con acento ámbar `#F2A900`.
+- Grillas densas de 26 px con encabezados azules y renglones alternos.
+- Tipo de insumo por color: MAT azul, MO verde, EQ naranja, BAS morado y CON azul marino.
+- Tarjetas de costo directo y P.U. de venta, y barra inferior con C.D., P.U. y total del presupuesto.
+
+Los colores están definidos en `App.axaml`.
+
+**Forma de trabajo con teclas de función** (`Views/MainWindow.axaml.cs`, probada con teclado simulado):
+
+| Tecla | Acción |
+|---|---|
+| F3 | Buscador de insumos: escribir filtra, ↑ ↓ eligen y Enter agrega a la matriz con cantidad 1. No ofrece conceptos ni el propio insumo. |
+| F4 / doble clic | Entra a la matriz del básico (matriz dentro de matriz). En el presupuesto, abre la matriz del concepto. |
+| Esc / Alt+← | Cancela la edición o, si no se edita, regresa a la matriz anterior. La ruta se muestra arriba, p. ej. `CON-FIR10 › BAS-CON150 › BAS-CUA1`. |
+| F9 | Recalcula todo el catálogo y el presupuesto. |
+| F1 | Tabla de atajos. |
+| Ctrl+1/2/3 | Catálogo, presupuesto o explosión. |
+
+**Teclado dentro de la grilla** (`Comportamientos/NavegacionHojaCalculo.cs`, probado con teclado simulado):
 
 | Tecla | Acción |
 |---|---|
@@ -243,13 +262,13 @@ Medido en un contenedor Linux de 4 núcleos con SQL Server 2022.
 
 Los catálogos de prueba de C# y de SQL son sintéticos y distintos, por eso los conteos de la cascada difieren. Para reproducirlo: `RendimientoTests` y `db/04_carga_rendimiento.sql`.
 
-## 6. Pruebas (37)
+## 6. Pruebas (42)
 
 | Proyecto | Qué cubre |
 |---|---|
 | `Domain.Tests` (19) | FSR, costo horario y sobrecostos **verificados a mano**; herramienta sin doble cobro; cascada incremental (sólo afectados, en orden); ciclos con ruta; 20,000 niveles sin desbordar; reglas de tipo; presupuesto y explosión con su invariante; rendimiento. |
 | `Infrastructure.Tests` (7, contra SQL Server real) | Que **SQL y C# coincidan** en cada insumo, presupuesto y explosión; que el script de datos sea igual al catálogo de ejemplo; la cascada por precio, por matriz y por herramienta; y que el trigger rechace ciclos y conceptos como componente. |
-| `Desktop.Tests` (11, Avalonia sin pantalla) | Recálculo reactivo en la vista; captura de claves; rechazo de ciclos; y el teclado: escribir sobre una celda, Enter, Tab y Shift+Tab, nuevo renglón con Enter, Supr y Esc. |
+| `Desktop.Tests` (16, Avalonia sin pantalla) | Recálculo reactivo en la vista; captura de claves; rechazo de ciclos; teclado en la grilla (escribir sobre una celda, Enter, Tab y Shift+Tab, nuevo renglón, Supr y Esc); navegación entre matrices con F4 y Esc; buscador F3; F1 y F9. |
 
 ## 7. Pendiente / siguiente iteración
 

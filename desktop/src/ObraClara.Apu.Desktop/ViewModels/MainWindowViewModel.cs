@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ObraClara.Apu.Application;
 using ObraClara.Apu.Domain;
+using ObraClara.Apu.Domain.Calculo;
 using ObraClara.Apu.Domain.Catalogo;
 using ObraClara.Apu.Domain.Presupuestos;
 
@@ -20,6 +21,9 @@ public sealed record PartidaFila(int Id, int Nivel, TipoPartida Tipo, string Cla
 public sealed partial class MainWindowViewModel : ObservableObject
 {
     private readonly Dictionary<int, InsumoFilaViewModel> _filas = [];
+    // ruta de navegación al abrir matrices dentro de matrices (F4 entra, Esc regresa)
+    private readonly Stack<InsumoFilaViewModel> _historial = new();
+    private bool _navegando;
 
     public MainWindowViewModel(SesionCatalogo sesion, string origen)
     {
@@ -49,6 +53,22 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private decimal _totalPresupuesto;
     [ObservableProperty] private decimal _costoDirectoObra;
     [ObservableProperty] private decimal _herramientaExplosion;
+    [ObservableProperty] private int _pestanaActiva;
+    [ObservableProperty] private bool _buscadorVisible;
+    [ObservableProperty] private string _textoBuscador = "";
+    [ObservableProperty] private InsumoFilaViewModel? _resultadoSeleccionado;
+    [ObservableProperty] private bool _atajosVisibles;
+
+    public ObservableCollection<InsumoFilaViewModel> ResultadosBuscador { get; } = [];
+
+    /// <summary>Ruta de matrices abiertas, p. ej. «CON-MUR14 › BAS-MOR14 › BAS-CUA1».</summary>
+    public string Ruta => string.Join("  ›  ", _historial.Reverse().Append(Seleccionado).OfType<InsumoFilaViewModel>().Select(f => f.Clave));
+    public bool PuedeRegresar => _historial.Count > 0;
+
+    /// <summary>Precio unitario de venta del seleccionado con el sobrecosto del presupuesto abierto.</summary>
+    public decimal? PrecioVentaSeleccionado => Seleccionado is { } s && Sesion.Presupuesto is { } p
+        ? CalculadoraPrecioVenta.Calcular(s.CostoDirecto, p.Sobrecosto).PrecioUnitario
+        : null;
 
     public string? NombrePresupuesto => Sesion.Presupuesto is { } p ? $"{p.Clave} · {p.Nombre}" : null;
 
@@ -69,6 +89,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     partial void OnSeleccionadoChanged(InsumoFilaViewModel? value)
     {
+        if (!_navegando) _historial.Clear();      // elegirlo en el catálogo reinicia la ruta
+        OnPropertyChanged(nameof(Ruta));
+        OnPropertyChanged(nameof(PuedeRegresar));
+        OnPropertyChanged(nameof(PrecioVentaSeleccionado));
         RecargarComponentes();
         OnPropertyChanged(nameof(HerramientaPorcentaje));
         OnPropertyChanged(nameof(SeguridadPorcentaje));
@@ -107,6 +131,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         foreach (var id in recalculados)
             if (_filas.TryGetValue(id, out var f)) f.Refrescar();
         foreach (var c in Componentes) c.Refrescar();
+        OnPropertyChanged(nameof(PrecioVentaSeleccionado));
         if (Sesion.Presupuesto is { } p && p.Conceptos.Any(c => recalculados.Contains(c.InsumoId!.Value)))
             RecalcularPresupuesto();
     }
@@ -154,6 +179,115 @@ public sealed partial class MainWindowViewModel : ObservableObject
             _ = Ejecutar(() => Sesion.QuitarComponenteAsync(s.Id, hijoId), $"{fila.Clave} quitado de {s.Clave}", RecargarComponentes);
         Componentes.Remove(fila);
     }
+
+    // ------------------------------------------------------------ forma de trabajo con teclas de función
+
+    /// <summary>F4: abre la matriz del componente (básico o concepto) para revisarla o editarla.</summary>
+    [RelayCommand]
+    private void AbrirMatriz(ComponenteFilaViewModel? fila)
+    {
+        if (fila?.HijoId is not { } id || !_filas.TryGetValue(id, out var destino)) return;
+        if (!destino.EsCompuesto)
+        {
+            Mensaje = $"{destino.Clave} es {destino.Tipo}: su costo es {destino.Origen.ToLowerInvariant()}, no tiene matriz";
+            return;
+        }
+        Navegar(destino, apilar: true);
+    }
+
+    /// <summary>F4 en el presupuesto: abre la matriz del concepto en el catálogo.</summary>
+    [RelayCommand]
+    private void AbrirConcepto(PartidaFila? partida)
+    {
+        if (partida is not { Tipo: TipoPartida.Concepto } || Sesion.Presupuesto is null) return;
+        var insumoId = Sesion.Presupuesto.Partidas.Single(x => x.Id == partida.Id).InsumoId!.Value;
+        Seleccionado = _filas[insumoId];
+        PestanaActiva = 0;
+    }
+
+    /// <summary>Esc: regresa a la matriz anterior de la ruta.</summary>
+    [RelayCommand]
+    private void Regresar()
+    {
+        if (_historial.Count > 0) Navegar(_historial.Pop(), apilar: false);
+    }
+
+    private void Navegar(InsumoFilaViewModel destino, bool apilar)
+    {
+        _navegando = true;
+        try
+        {
+            if (apilar && Seleccionado is not null) _historial.Push(Seleccionado);
+            Seleccionado = destino;
+            OnPropertyChanged(nameof(Ruta));
+            OnPropertyChanged(nameof(PuedeRegresar));
+        }
+        finally { _navegando = false; }
+    }
+
+    /// <summary>F3: buscador de insumos para agregar a la matriz sin recordar claves.</summary>
+    [RelayCommand]
+    private void AbrirBuscador()
+    {
+        if (Seleccionado is not { EsCompuesto: true })
+        {
+            Mensaje = "Seleccione un básico o concepto para agregarle insumos";
+            return;
+        }
+        TextoBuscador = "";
+        FiltrarBuscador();
+        BuscadorVisible = true;
+    }
+
+    [RelayCommand]
+    private void CerrarBuscador() => BuscadorVisible = false;
+
+    partial void OnTextoBuscadorChanged(string value) => FiltrarBuscador();
+
+    private void FiltrarBuscador()
+    {
+        ResultadosBuscador.Clear();
+        var texto = TextoBuscador.Trim();
+        // un concepto no puede ser componente y un compuesto no se contiene a sí mismo
+        foreach (var f in Insumos.Where(f => f.Tipo != TipoInsumo.CON && f.Id != Seleccionado?.Id)
+                     .Where(f => texto.Length == 0
+                                 || f.Clave.Contains(texto, StringComparison.OrdinalIgnoreCase)
+                                 || f.Descripcion.Contains(texto, StringComparison.OrdinalIgnoreCase))
+                     .Take(200))
+            ResultadosBuscador.Add(f);
+        ResultadoSeleccionado = ResultadosBuscador.FirstOrDefault();
+    }
+
+    /// <summary>Enter en el buscador: agrega el insumo elegido a la matriz con cantidad 1 (luego se ajusta en la celda).</summary>
+    [RelayCommand]
+    private void ElegirInsumo(InsumoFilaViewModel? elegido)
+    {
+        elegido ??= ResultadoSeleccionado;
+        if (elegido is null || Seleccionado is not { EsCompuesto: true } s) return;
+        BuscadorVisible = false;
+        if (Componentes.FirstOrDefault(c => c.HijoId == elegido.Id) is { } existente)
+        {
+            Mensaje = $"{elegido.Clave} ya está en la matriz de {s.Clave}; ajuste su cantidad";
+            ComponenteEnfocado = existente;
+            return;
+        }
+        var fila = Componentes.FirstOrDefault(c => c.EsNuevo) ?? new ComponenteFilaViewModel(this, s.Id);
+        if (!Componentes.Contains(fila)) Componentes.Add(fila);
+        fila.Clave = elegido.Clave;
+        ComponenteEnfocado = Componentes.Contains(fila) ? fila : null;
+    }
+
+    /// <summary>Renglón que la vista debe enfocar tras agregar desde el buscador.</summary>
+    [ObservableProperty] private ComponenteFilaViewModel? _componenteEnfocado;
+
+    /// <summary>F9: recalcula todo el catálogo y el presupuesto.</summary>
+    [RelayCommand]
+    private Task RecalcularTodo() =>
+        Ejecutar(Sesion.RecalcularTodoAsync, $"Catálogo recalculado: {Insumos.Count:N0} insumos");
+
+    /// <summary>F1: muestra u oculta la tabla de atajos.</summary>
+    [RelayCommand]
+    private void AlternarAtajos() => AtajosVisibles = !AtajosVisibles;
 
     private void CambiarCargos(decimal herramienta, decimal seguridad)
     {
