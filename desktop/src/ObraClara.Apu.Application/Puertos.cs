@@ -22,6 +22,8 @@ public interface IRepositorioApu
     /// <summary>Alta o cambio de un renglón de matriz; el servidor valida tipos y ciclos y recalcula en cascada.</summary>
     Task GuardarComponenteAsync(int padreId, ComponenteApu componente, CancellationToken ct = default);
     Task QuitarComponenteAsync(int padreId, int hijoId, CancellationToken ct = default);
+    /// <summary>Herramienta menor y equipo de seguridad de un compuesto (fracciones), con cascada.</summary>
+    Task ActualizarCargosAsync(int compuestoId, decimal tasaHerramienta, decimal tasaEquipoSeguridad, CancellationToken ct = default);
     Task RecalcularTodoAsync(CancellationToken ct = default);
 
     Task<IReadOnlyList<PartidaCalculada>> CalcularPresupuestoAsync(int presupuestoId, CancellationToken ct = default);

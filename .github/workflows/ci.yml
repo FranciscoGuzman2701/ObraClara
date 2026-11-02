@@ -35,3 +35,30 @@ jobs:
         run: pnpm turbo run typecheck
       - name: Pruebas (reglas SQL, API contra PostgreSQL, contratos, bandeja offline)
         run: pnpm turbo run test --concurrency=1
+
+  escritorio:
+    # Motor de precios unitarios (.NET 8 + SQL Server): dominio, SQL Server real e interfaz sin pantalla
+    runs-on: ubuntu-latest
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "ObraClara#2026"
+        ports: ["1433:1433"]
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'ObraClara#2026' -Q 'SELECT 1'"
+          --health-interval 10s --health-timeout 5s --health-retries 12
+    env:
+      APU_SQLSERVER: "Server=localhost,1433;User Id=sa;Password=ObraClara#2026;TrustServerCertificate=True"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - run: dotnet build ObraClara.Apu.sln -c Release
+      - run: dotnet test ObraClara.Apu.sln -c Release --no-build

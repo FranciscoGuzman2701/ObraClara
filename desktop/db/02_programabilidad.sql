@@ -46,9 +46,35 @@ BEGIN
       FROM inserted i JOIN apu.Insumos h ON h.InsumoId = i.HijoId WHERE h.TipoInsumoId = 5;
     IF @msg IS NOT NULL THROW 50002, @msg, 1;
 
-    -- Descendientes de cada hijo insertado; si alguno es el padre de esa arista, hay ciclo.
-    WITH Descendientes AS (
-        SELECT i.PadreId AS Origen, i.HijoId AS Nodo, 1 AS Nivel FROM inserted i
+    -- 1) Filtro barato para cargas masivas: BFS por NODOS (no por caminos) desde todos los hijos
+    --    insertados. Si ningún padre insertado es alcanzable, no puede haber ciclo. Es el caso
+    --    normal al importar conceptos: un concepto nunca es componente, así que nadie llega a él.
+    CREATE TABLE #alcanzados (Id int NOT NULL PRIMARY KEY);
+    CREATE TABLE #frontera   (Id int NOT NULL PRIMARY KEY);
+    CREATE TABLE #nueva      (Id int NOT NULL PRIMARY KEY);
+    INSERT #alcanzados (Id) SELECT DISTINCT HijoId FROM inserted;
+    INSERT #frontera (Id) SELECT Id FROM #alcanzados;
+    WHILE EXISTS (SELECT 1 FROM #frontera)
+      AND NOT EXISTS (SELECT 1 FROM inserted i JOIN #alcanzados a ON a.Id = i.PadreId)
+    BEGIN
+        TRUNCATE TABLE #nueva;
+        INSERT #nueva (Id)
+        SELECT DISTINCT a.HijoId
+          FROM apu.APU_Detalle a
+          JOIN #frontera f ON f.Id = a.PadreId
+         WHERE NOT EXISTS (SELECT 1 FROM #alcanzados x WHERE x.Id = a.HijoId);
+        INSERT #alcanzados (Id) SELECT Id FROM #nueva;
+        TRUNCATE TABLE #frontera;
+        INSERT #frontera (Id) SELECT Id FROM #nueva;
+    END;
+    IF NOT EXISTS (SELECT 1 FROM inserted i JOIN #alcanzados a ON a.Id = i.PadreId) RETURN;
+
+    -- 2) Prueba exacta sólo para las aristas sospechosas: descendientes de cada hijo; si alguno
+    --    es el padre de esa misma arista, hay ciclo.
+    WITH Sospechosas AS (
+        SELECT i.PadreId, i.HijoId FROM inserted i JOIN #alcanzados a ON a.Id = i.PadreId
+    ), Descendientes AS (
+        SELECT s.PadreId AS Origen, s.HijoId AS Nodo, 1 AS Nivel FROM Sospechosas s
         UNION ALL
         SELECT d.Origen, a.HijoId, d.Nivel + 1
           FROM Descendientes d

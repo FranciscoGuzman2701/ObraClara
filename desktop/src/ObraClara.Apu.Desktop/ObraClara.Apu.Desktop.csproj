@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Interfaz de escritorio con Avalonia 11: nativa en Windows (Win32 + Skia) y comprobable
+    sin pantalla en CI (Avalonia.Headless). Publicación para Windows:
+      dotnet publish -c Release -r win-x64 -p:PublishSingleFile=true -p:SelfContained=true
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>ObraClaraPU</AssemblyName>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.2.3" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ObraClara.Apu.Infrastructure\ObraClara.Apu.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

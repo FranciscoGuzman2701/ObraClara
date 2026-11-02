@@ -159,6 +159,20 @@ public sealed class RepositorioSqlServer(string cadenaConexion) : IRepositorioAp
             return 0;
         }, ct);
 
+    public Task ActualizarCargosAsync(int compuestoId, decimal tasaHerramienta, decimal tasaEquipoSeguridad, CancellationToken ct = default) =>
+        EjecutarAsync(async cn =>
+        {
+            await using var tx = (SqlTransaction)await cn.BeginTransactionAsync(ct);
+            var filas = await cn.ExecuteAsync(new CommandDefinition(
+                "UPDATE apu.Insumos SET TasaHerramienta = @tasaHerramienta, TasaEquipoSeguridad = @tasaEquipoSeguridad " +
+                "WHERE InsumoId = @compuestoId AND TipoInsumoId IN (4, 5)",
+                new { compuestoId, tasaHerramienta, tasaEquipoSeguridad }, tx, cancellationToken: ct));
+            if (filas == 0) throw new ReglaDeNegocioException("Sólo los compuestos llevan herramienta y equipo de seguridad");
+            await CascadaAsync(cn, tx, compuestoId, ct);
+            await tx.CommitAsync(ct);
+            return 0;
+        }, ct);
+
     public Task RecalcularTodoAsync(CancellationToken ct = default) =>
         EjecutarAsync(cn => cn.ExecuteAsync(new CommandDefinition("apu.usp_RecalcularTodo",
             commandType: CommandType.StoredProcedure, commandTimeout: 600, cancellationToken: ct)), ct);

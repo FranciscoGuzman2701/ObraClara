@@ -24,7 +24,7 @@ public sealed class CascadaYReglasTests(BaseDePrueba db) : IClassFixture<BaseDeP
         Assert.Equal(recalculadosCs.Count, recalculadosSql);
         var sql = (await Repo.CargarCostosAsync()).ToDictionary(c => c.InsumoId);
         foreach (var id in new[] { 6, 30, 42, 50, 51 })
-            Assert.True(Math.Abs(costos.CostoDirecto(id) - sql[id].CostoDirecto) < 0.0005m, $"{catalogo[id].Clave}");
+            Assert.True(Math.Abs(costos.CostoDirecto(id) - sql[id].CostoDirecto) < 0.00005m, $"{catalogo[id].Clave}");
     }
 
     [SkippableFact]
@@ -59,9 +59,24 @@ public sealed class CascadaYReglasTests(BaseDePrueba db) : IClassFixture<BaseDeP
 
         var catalogo = await Repo.CargarCatalogoAsync();
         Assert.Equal(0.40m, catalogo[41].Componentes.Single(c => c.HijoId == 1).Cantidad);
-        Assert.True(Math.Abs(MotorCostos.CalcularTodo(catalogo).CostoDirecto(51) - despues[51].CostoDirecto) < 0.0005m);
+        Assert.True(Math.Abs(MotorCostos.CalcularTodo(catalogo).CostoDirecto(51) - despues[51].CostoDirecto) < 0.00005m);
 
         await Repo.QuitarComponenteAsync(41, 4);   // sin agua
         Assert.True((await Repo.CargarCostosAsync()).Single(c => c.InsumoId == 41).CostoDirecto < despues[41].CostoDirecto);
+    }
+
+    [SkippableFact]
+    public async Task Cambiar_herramienta_recalcula_el_compuesto_y_sus_ancestros()
+    {
+        Skip.IfNot(db.Disponible, $"Defina {BaseDePrueba.Variable}");
+        var antes = (await Repo.CargarCostosAsync()).ToDictionary(c => c.InsumoId);
+        await Repo.ActualizarCargosAsync(41, 0.05m, 0m);             // mortero: 3 % → 5 %
+        var despues = (await Repo.CargarCostosAsync()).ToDictionary(c => c.InsumoId);
+        Assert.True(despues[41].Herramienta > antes[41].Herramienta);
+        Assert.True(despues[51].CostoDirecto > antes[51].CostoDirecto);
+        var catalogo = await Repo.CargarCatalogoAsync();
+        Assert.Equal(0.05m, catalogo[41].TasaHerramienta);
+        Assert.True(Math.Abs(MotorCostos.CalcularTodo(catalogo).CostoDirecto(51) - despues[51].CostoDirecto) < 0.00005m);
+        await Assert.ThrowsAsync<ReglaDeNegocioException>(() => Repo.ActualizarCargosAsync(1, 0.03m, 0m));
     }
 }

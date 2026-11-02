@@ -1,0 +1,158 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ObraClara.Apu.Desktop.ViewModels"
+        xmlns:pre="using:ObraClara.Apu.Domain.Presupuestos"
+        xmlns:nav="using:ObraClara.Apu.Desktop.Comportamientos"
+        x:Class="ObraClara.Apu.Desktop.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="{Binding Titulo}" Width="1440" Height="860" MinWidth="960" MinHeight="600">
+  <Window.Styles>
+    <Style Selector="TextBlock.titulo">
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.etiqueta">
+      <Setter Property="Opacity" Value="0.7" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.error">
+      <Setter Property="Foreground" Value="#C53030" />
+    </Style>
+  </Window.Styles>
+
+  <DockPanel>
+    <!-- barra de estado: último resultado o error de regla de negocio -->
+    <Border DockPanel.Dock="Bottom" Padding="10,4" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}">
+      <Panel>
+        <TextBlock Name="TextoMensaje" Text="{Binding Mensaje}" IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNull}}" />
+        <TextBlock Name="TextoError" Classes="error" Text="{Binding Error}" IsVisible="{Binding Error, Converter={x:Static ObjectConverters.IsNotNull}}" />
+      </Panel>
+    </Border>
+
+    <TabControl Margin="6,0">
+      <!-- ============================================================ catálogo -->
+      <TabItem Header="Catálogo y matrices">
+        <Grid ColumnDefinitions="2*,6,3*">
+          <DockPanel Grid.Column="0">
+            <TextBox DockPanel.Dock="Top" Name="Buscar" Margin="0,6" Watermark="Buscar por clave o descripción (Ctrl+F)"
+                     Text="{Binding Busqueda}" />
+            <DataGrid Name="GridInsumos" ItemsSource="{Binding InsumosVista}" SelectedItem="{Binding Seleccionado}"
+                      AutoGenerateColumns="False" CanUserSortColumns="True" CanUserReorderColumns="True"
+                      GridLinesVisibility="Horizontal" IsReadOnly="False" nav:NavegacionHojaCalculo.Habilitar="True">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Clave" x:DataType="vm:InsumoFilaViewModel" Binding="{Binding Clave}" IsReadOnly="True" Width="105" />
+                <DataGridTextColumn Header="Descripción" x:DataType="vm:InsumoFilaViewModel" Binding="{Binding Descripcion}" IsReadOnly="True" Width="*" MinWidth="160" />
+                <DataGridTextColumn Header="Ud" x:DataType="vm:InsumoFilaViewModel" Binding="{Binding Unidad}" IsReadOnly="True" Width="60" />
+                <DataGridTextColumn Header="Tipo" x:DataType="vm:InsumoFilaViewModel" Binding="{Binding Tipo}" IsReadOnly="True" Width="65" />
+                <DataGridTextColumn Header="Origen" x:DataType="vm:InsumoFilaViewModel" Binding="{Binding Origen}" IsReadOnly="True" Width="105" />
+                <DataGridTextColumn Header="Precio / costo" x:DataType="vm:InsumoFilaViewModel" Binding="{Binding Precio, StringFormat='{}{0:N2}', UpdateSourceTrigger=LostFocus}" Width="110" />
+              </DataGrid.Columns>
+            </DataGrid>
+          </DockPanel>
+
+          <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
+
+          <DockPanel Grid.Column="2" Margin="6,6,0,0" IsVisible="{Binding Seleccionado, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <StackPanel DockPanel.Dock="Top" Spacing="4">
+              <TextBlock Classes="titulo" FontSize="16" TextWrapping="Wrap">
+                <Run Text="{Binding Seleccionado.Clave}" /><Run Text=" · " /><Run Text="{Binding Seleccionado.Descripcion}" />
+              </TextBlock>
+              <WrapPanel>
+                <TextBlock Classes="etiqueta" Text="Costo directo: " />
+                <TextBlock Name="CostoDirectoSeleccionado" Classes="titulo" FontSize="18" Text="{Binding Seleccionado.CostoDirecto, StringFormat='{}{0:C2}'}" />
+                <TextBlock Classes="etiqueta" Margin="6,0,24,0" Text="{Binding Seleccionado.Unidad, StringFormat='por {0}'}" />
+                <TextBlock Classes="etiqueta" Text="{Binding Seleccionado.Material, StringFormat='Mat. {0:N2}'}" Margin="0,0,12,0" />
+                <TextBlock Classes="etiqueta" Text="{Binding Seleccionado.ManoObra, StringFormat='MO {0:N2}'}" Margin="0,0,12,0" />
+                <TextBlock Classes="etiqueta" Text="{Binding Seleccionado.Equipo, StringFormat='Eq. {0:N2}'}" Margin="0,0,12,0" />
+                <TextBlock Classes="etiqueta" Text="{Binding Seleccionado.Herramienta, StringFormat='Herr. {0:N2}'}" Margin="0,0,12,0" />
+                <TextBlock Classes="etiqueta" Text="{Binding Seleccionado.EquipoSeguridad, StringFormat='Seg. {0:N2}'}" />
+              </WrapPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding Seleccionado.EsCompuesto}" Margin="0,4">
+                <TextBlock Classes="etiqueta" Text="Herramienta menor % MO" />
+                <NumericUpDown Value="{Binding HerramientaPorcentaje}" Minimum="0" Maximum="100" Increment="0.5" FormatString="N2" Width="120" />
+                <TextBlock Classes="etiqueta" Text="Equipo de seguridad % MO" Margin="12,0,0,0" />
+                <NumericUpDown Value="{Binding SeguridadPorcentaje}" Minimum="0" Maximum="100" Increment="0.5" FormatString="N2" Width="120" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding Seleccionado.EsCompuesto}">
+                <Button Name="BotonAgregar" Content="Agregar insumo (Ins)" Command="{Binding AgregarComponenteCommand}" HotKey="Insert" />
+                <Button Content="Quitar renglón (Supr)" Command="{Binding QuitarComponenteCommand}"
+                        CommandParameter="{Binding #GridComponentes.SelectedItem}" />
+                <TextBlock Classes="etiqueta" Text="Escriba sobre una celda para editarla · Enter baja · Tab avanza" />
+              </StackPanel>
+            </StackPanel>
+
+            <DataGrid Name="GridComponentes" ItemsSource="{Binding Componentes}" AutoGenerateColumns="False" Margin="0,6,0,0"
+                      GridLinesVisibility="All" CanUserSortColumns="False" IsVisible="{Binding Seleccionado.EsCompuesto}"
+                      nav:NavegacionHojaCalculo.Habilitar="True"
+                      nav:NavegacionHojaCalculo.ComandoNuevoRenglon="{Binding AgregarComponenteCommand}"
+                      nav:NavegacionHojaCalculo.ComandoEliminar="{Binding QuitarComponenteCommand}">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Clave" x:DataType="vm:ComponenteFilaViewModel" Binding="{Binding Clave, UpdateSourceTrigger=LostFocus}" Width="110" />
+                <DataGridTextColumn Header="Descripción" x:DataType="vm:ComponenteFilaViewModel" Binding="{Binding Descripcion}" IsReadOnly="True" Width="*" MinWidth="180" />
+                <DataGridTextColumn Header="Ud" x:DataType="vm:ComponenteFilaViewModel" Binding="{Binding Unidad}" IsReadOnly="True" Width="60" />
+                <DataGridTextColumn Header="Tipo" x:DataType="vm:ComponenteFilaViewModel" Binding="{Binding Tipo}" IsReadOnly="True" Width="65" />
+                <DataGridTextColumn Header="Cantidad" x:DataType="vm:ComponenteFilaViewModel" Binding="{Binding Cantidad, StringFormat='{}{0:0.######}', UpdateSourceTrigger=LostFocus}" Width="95" />
+                <DataGridTextColumn Header="Rendimiento" x:DataType="vm:ComponenteFilaViewModel" Binding="{Binding Rendimiento, StringFormat='{}{0:0.####}', UpdateSourceTrigger=LostFocus}" Width="110" />
+                <DataGridTextColumn Header="Merma %" x:DataType="vm:ComponenteFilaViewModel" Binding="{Binding MermaPorcentaje, StringFormat='{}{0:0.##}', UpdateSourceTrigger=LostFocus}" Width="90" />
+                <DataGridTextColumn Header="Costo" x:DataType="vm:ComponenteFilaViewModel" Binding="{Binding CostoUnitario, StringFormat='{}{0:N2}'}" IsReadOnly="True" Width="95" />
+                <DataGridTextColumn Header="Importe" x:DataType="vm:ComponenteFilaViewModel" Binding="{Binding Importe, StringFormat='{}{0:N4}'}" IsReadOnly="True" Width="100" />
+              </DataGrid.Columns>
+            </DataGrid>
+          </DockPanel>
+        </Grid>
+      </TabItem>
+
+      <!-- ============================================================ presupuesto -->
+      <TabItem Header="Presupuesto">
+        <DockPanel Margin="0,6,0,0">
+          <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+            <TextBlock Classes="titulo" FontSize="16" Text="{Binding NombrePresupuesto}" Margin="0,0,24,0" />
+            <TextBlock Classes="etiqueta" Text="Total (sin IVA): " />
+            <TextBlock Name="TotalPresupuesto" Classes="titulo" FontSize="16" Text="{Binding TotalPresupuesto, StringFormat='{}{0:C2}'}" />
+          </WrapPanel>
+          <DataGrid ItemsSource="{Binding Partidas}" AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="Horizontal"
+                    CanUserSortColumns="False">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Clave" x:DataType="vm:PartidaFila" Binding="{Binding Clave}" Width="110" />
+              <DataGridTemplateColumn Header="Descripción" Width="*">
+                <DataTemplate x:DataType="vm:PartidaFila">
+                  <TextBlock Text="{Binding DescripcionConSangria}" Classes.titulo="{Binding EsTitulo}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="8,0" />
+                </DataTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTextColumn Header="Ud" x:DataType="vm:PartidaFila" Binding="{Binding Unidad}" Width="50" />
+              <DataGridTextColumn Header="Cantidad" x:DataType="vm:PartidaFila" Binding="{Binding Cantidad, StringFormat='{}{0:N2}'}" Width="100" />
+              <DataGridTextColumn Header="P.U." x:DataType="vm:PartidaFila" Binding="{Binding PrecioUnitario, StringFormat='{}{0:N2}'}" Width="110" />
+              <DataGridTemplateColumn Header="Importe" Width="140">
+                <DataTemplate x:DataType="vm:PartidaFila">
+                  <TextBlock Text="{Binding Importe, StringFormat='{}{0:N2}'}" Classes="num" Classes.titulo="{Binding EsTitulo}" VerticalAlignment="Center" Margin="8,0" />
+                </DataTemplate>
+              </DataGridTemplateColumn>
+            </DataGrid.Columns>
+          </DataGrid>
+        </DockPanel>
+      </TabItem>
+
+      <!-- ============================================================ explosión -->
+      <TabItem Header="Explosión de insumos">
+        <DockPanel Margin="0,6,0,0">
+          <WrapPanel DockPanel.Dock="Bottom" Margin="0,6">
+            <TextBlock Classes="etiqueta" Text="Herramienta menor y equipo de seguridad: " />
+            <TextBlock Text="{Binding HerramientaExplosion, StringFormat='{}{0:C2}'}" Margin="0,0,24,0" />
+            <TextBlock Classes="etiqueta" Text="Costo directo de la obra: " />
+            <TextBlock Classes="titulo" Text="{Binding CostoDirectoObra, StringFormat='{}{0:C2}'}" />
+          </WrapPanel>
+          <DataGrid ItemsSource="{Binding Explosion}" AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="Horizontal">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Tipo" x:DataType="pre:InsumoExplosionado" Binding="{Binding Tipo}" Width="55" />
+              <DataGridTextColumn Header="Clave" x:DataType="pre:InsumoExplosionado" Binding="{Binding Clave}" Width="110" />
+              <DataGridTextColumn Header="Descripción" x:DataType="pre:InsumoExplosionado" Binding="{Binding Descripcion}" Width="*" />
+              <DataGridTextColumn Header="Ud" x:DataType="pre:InsumoExplosionado" Binding="{Binding Unidad}" Width="50" />
+              <DataGridTextColumn Header="Cantidad total" x:DataType="pre:InsumoExplosionado" Binding="{Binding Cantidad, StringFormat='{}{0:N3}'}" Width="120" />
+              <DataGridTextColumn Header="Costo unitario" x:DataType="pre:InsumoExplosionado" Binding="{Binding CostoUnitario, StringFormat='{}{0:N2}'}" Width="120" />
+              <DataGridTextColumn Header="Importe" x:DataType="pre:InsumoExplosionado" Binding="{Binding Importe, StringFormat='{}{0:N2}'}" Width="130" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </DockPanel>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</Window>

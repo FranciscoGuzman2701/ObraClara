@@ -11,7 +11,8 @@ namespace ObraClara.Apu.Infrastructure.Tests;
 public sealed class MotoresCoincidenTests(BaseDePrueba db) : IClassFixture<BaseDePrueba>
 {
     // SQL Server guarda el desglose con 6 decimales en cada nivel; C# usa decimal de 28 dígitos.
-    private const decimal Tolerancia = 0.0005m;
+    // La diferencia observada es < 0.00001 por unidad.
+    private const decimal Tolerancia = 0.00005m;
     private RepositorioSqlServer Repo => new(db.CadenaConexion);
 
     [SkippableFact]
@@ -69,7 +70,7 @@ public sealed class MotoresCoincidenTests(BaseDePrueba db) : IClassFixture<BaseD
         Assert.Equal(expCs.Insumos.Select(i => i.Clave), expSql.Insumos.Select(i => i.Clave));
         foreach (var (a, b) in expCs.Insumos.Zip(expSql.Insumos))
             Assert.True(Math.Abs(a.Cantidad - b.Cantidad) < Tolerancia, $"{a.Clave}: {a.Cantidad} vs {b.Cantidad}");
-        Assert.True(Math.Abs(expCs.CostoDirectoTotal - expSql.CostoDirectoTotal) < 0.05m,
+        Assert.True(Math.Abs(expCs.CostoDirectoTotal - expSql.CostoDirectoTotal) < 0.01m,
             $"CD total {expCs.CostoDirectoTotal} vs {expSql.CostoDirectoTotal}");
     }
 }
