@@ -15,6 +15,7 @@ packages/
   db/         Migraciones SQL (esquema, triggers, vistas KPI, RLS), datos de desarrollo y prueba de reglas
   contracts/  Esquemas zod y tipos compartidos; semáforo del lado cliente
 desktop/    Precios unitarios para Windows (.NET 8, Avalonia, SQL Server) — ver desktop/README.md
+checador/   Checador de asistencia multi-empresa, app independiente — ver checador/README.md
 docs/
   PROPUESTA.md                       Propuesta técnica
   importacion/plantilla_presupuesto.csv

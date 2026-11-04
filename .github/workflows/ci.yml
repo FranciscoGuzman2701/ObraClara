@@ -62,3 +62,36 @@ jobs:
           dotnet-version: "8.0.x"
       - run: dotnet build ObraClara.Apu.sln -c Release
       - run: dotnet test ObraClara.Apu.sln -c Release --no-build
+
+  checador:
+    # App independiente de asistencia multi-empresa (checador/)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: checador
+          POSTGRES_PASSWORD: checador
+          POSTGRES_DB: checador
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U checador" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://checador:checador@localhost:5432/checador
+    defaults:
+      run:
+        working-directory: checador
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: checador/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: checador/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build

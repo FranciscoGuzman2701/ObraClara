@@ -1,0 +1,11 @@
+{
+  "name": "Checador",
+  "short_name": "Checador",
+  "description": "Checador digital de asistencia",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f6fa",
+  "theme_color": "#0f2240",
+  "lang": "es-MX",
+  "icons": [{ "src": "/icono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

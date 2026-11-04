@@ -1,0 +1,5 @@
+# Proyecto independiente: este archivo evita que pnpm lo trate como parte del
+# monorepo de ObraClara que está en la carpeta superior.
+packages: []
+onlyBuiltDependencies:
+  - esbuild

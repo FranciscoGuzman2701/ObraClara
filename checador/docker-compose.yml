@@ -1,0 +1,16 @@
+# PostgreSQL para desarrollo del checador (puerto 5433 para no chocar con otros proyectos)
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: checador
+      POSTGRES_PASSWORD: checador
+      POSTGRES_DB: checador
+    ports: ["5433:5432"]
+    volumes: [checador-datos:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U checador"]
+      interval: 5s
+      retries: 10
+volumes:
+  checador-datos:
