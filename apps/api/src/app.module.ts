@@ -16,8 +16,6 @@ import { SyncService } from './sync/sync.service';
 import { ArchivosController } from './archivos/archivos.controller';
 import { ArchivosService } from './archivos/archivos.service';
 import { S3Storage, Storage } from './archivos/storage.service';
-import { ChecadorController } from './checador/checador.controller';
-import { ChecadorService } from './checador/checador.service';
 
 // Monolito modular: un módulo Nest por ahora; cada carpeta de dominio es
 // candidata a su propio módulo cuando crezca.
@@ -25,13 +23,13 @@ import { ChecadorService } from './checador/checador.service';
   imports: [DbModule],
   controllers: [
     HealthController, AuthController, ObrasController, RequisicionesController, AvancesController,
-    SyncController, ArchivosController, ChecadorController,
+    SyncController, ArchivosController,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_FILTER, useClass: ErroresFilter },
     { provide: Storage, useClass: S3Storage },
-    ObrasService, RequisicionesService, AvancesService, SyncService, ArchivosService, ChecadorService,
+    ObrasService, RequisicionesService, AvancesService, SyncService, ArchivosService,
   ],
 })
 export class AppModule {}

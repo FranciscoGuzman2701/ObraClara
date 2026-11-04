@@ -91,25 +91,7 @@ input, select, textarea {
 .error { color: var(--rojo); background: var(--rojo-bg); padding: 8px 12px; border-radius: 8px; margin: 12px 0; }
 .motivos { margin: 4px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; white-space: normal; }
 .vacio { color: var(--muted); padding: 24px; text-align: center; }
-/* barra con navegación y selector de empresa */
-.nav { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.selector-empresa { width: auto; padding: 5px 8px; font-weight: 600; }
-.chip.empresa { color: var(--accent); background: var(--bg); border: 1px solid var(--border); }
-.oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-/* checador */
-.chip.TRABAJANDO { color: var(--verde); background: var(--verde-bg); }
-.chip.EN_DESCANSO { color: var(--amarillo); background: var(--amarillo-bg); }
-.chip.SALIO, .chip.SIN_REGISTRO { color: var(--muted); background: var(--bg); border: 1px solid var(--border); }
-.chip.FUERA_DE_ZONA, .chip.SIN_UBICACION, .chip.SECUENCIA, .chip.OBJETADO { color: var(--rojo); background: var(--rojo-bg); }
-.chip.ACEPTADO, .chip.CERRADO { color: var(--verde); background: var(--verde-bg); }
-.chip.ABIERTO { color: var(--accent); background: var(--bg); border: 1px solid var(--border); }
-.tarjeta.atencion .val { color: var(--rojo); }
-.form-linea { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; margin: 12px 0; }
-.form-linea label { display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
-.form-linea input { width: auto; }
-.ok { color: var(--verde); }
-
 @media (max-width: 640px) {
-  header.barra { padding: 12px 16px; flex-wrap: wrap; gap: 8px; }
+  header.barra { padding: 12px 16px; }
   .tarjeta .val { font-size: 18px; }
 }

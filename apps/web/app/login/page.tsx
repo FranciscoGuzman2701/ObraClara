@@ -2,11 +2,7 @@
 import { useActionState } from 'react';
 import { iniciarSesion } from '../acciones';
 
-const DEMO = [
-  'director@demo.mx', 'residente@demo.mx', 'compras@demo.mx', 'finanzas@demo.mx', 'cabo@demo.mx',
-  // checador del grupo (P3 + 4 empresas)
-  'dueno@grupo.mx', 'rh@p3.mx', 'kiosco@p3.mx', 'ana@p3.mx', 'rh@e2.mx',
-];
+const DEMO = ['director@demo.mx', 'residente@demo.mx', 'compras@demo.mx', 'finanzas@demo.mx', 'cabo@demo.mx'];
 
 export default function Login() {
   const [error, enviar, pendiente] = useActionState(iniciarSesion, null);

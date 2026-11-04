@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { migrate, runSqlFile, recreateDatabase, SEED_FILE, DEMO_FILE, CHECADOR_FILE } from './index.mjs';
+import { migrate, runSqlFile, recreateDatabase, SEED_FILE, DEMO_FILE } from './index.mjs';
 
 const [cmd] = process.argv.slice(2);
 const url = process.env.DATABASE_URL;
@@ -27,14 +27,11 @@ switch (cmd) {
     const testUrl = process.env.TEST_DATABASE_URL ?? url.replace(/\/[^/]+$/, '/obraclara_db_test');
     await recreateDatabase(testUrl);
     await migrate(testUrl, { log: () => {} });
-    let notices = 0;
-    for (const archivo of [DEMO_FILE, CHECADOR_FILE]) {
-      const r = spawnSync('psql', [testUrl, '-q', '-v', 'ON_ERROR_STOP=1', '-f', archivo], { encoding: 'utf8' });
-      if (r.status !== 0) {
-        console.error(r.stderr);
-        process.exit(1);
-      }
-      notices += (r.stderr ?? '').split('\n').filter((l) => l.includes('✔')).length;
+    const r = spawnSync('psql', [testUrl, '-q', '-v', 'ON_ERROR_STOP=1', '-f', DEMO_FILE], { encoding: 'utf8' });
+    const notices = (r.stderr ?? '').split('\n').filter((l) => l.includes('✔')).length;
+    if (r.status !== 0) {
+      console.error(r.stderr);
+      process.exit(1);
     }
     console.log(`  ✔ Migraciones y ${notices} verificaciones de reglas de negocio OK`);
     break;

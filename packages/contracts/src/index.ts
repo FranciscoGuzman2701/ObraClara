@@ -8,9 +8,7 @@ const cantidad = z.number().positive().max(1e12);
 const dinero = z.number().nonnegative().max(1e12);
 
 // ----------------------------------------------------------------- catálogos
-export const Rol = z.enum([
-  'ADMIN', 'DIRECTOR', 'GERENTE_OBRA', 'RESIDENTE', 'CABO', 'COMPRAS', 'ALMACEN', 'FINANZAS', 'RH', 'KIOSCO',
-]);
+export const Rol = z.enum(['ADMIN', 'DIRECTOR', 'GERENTE_OBRA', 'RESIDENTE', 'CABO', 'COMPRAS', 'ALMACEN', 'FINANZAS']);
 export type Rol = z.infer<typeof Rol>;
 
 export const Semaforo = z.enum(['VERDE', 'AMARILLO', 'ROJO']);
@@ -207,4 +205,3 @@ export const ConfirmarArchivoInput = z.object({
 export type ConfirmarArchivoInput = z.infer<typeof ConfirmarArchivoInput>;
 
 export * from './semaforo';
-export * from './checador';

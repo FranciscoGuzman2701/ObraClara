@@ -75,7 +75,7 @@ export class SyncService {
   }
 }
 
-export function motivo(err: unknown): string {
+function motivo(err: unknown): string {
   if (err instanceof HttpException) return err.message;
   if (err instanceof DatabaseError) return traducir(err).mensaje;
   return 'Error interno';
