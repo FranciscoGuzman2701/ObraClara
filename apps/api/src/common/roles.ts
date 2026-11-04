@@ -23,3 +23,18 @@ export async function exigirRol(c: PoolClient, usuarioId: string, obraId: string
   }
   return roles;
 }
+
+/** Roles de alcance empresa del usuario en la empresa de la sesión (RLS ya filtra la empresa). */
+export async function rolesEmpresa(c: PoolClient, usuarioId: string): Promise<Rol[]> {
+  const { rows } = await c.query<{ rol: Rol }>('SELECT rol FROM empresa_roles WHERE usuario_id = $1', [usuarioId]);
+  return rows.map((r) => r.rol);
+}
+
+/** Lanza 403 si el usuario no tiene alguno de los roles en la empresa (DIRECTOR y ADMIN siempre pasan). */
+export async function exigirRolEmpresa(c: PoolClient, usuarioId: string, permitidos: Rol[]): Promise<Rol[]> {
+  const roles = await rolesEmpresa(c, usuarioId);
+  if (!roles.some((r) => r === 'DIRECTOR' || r === 'ADMIN' || permitidos.includes(r))) {
+    throw new ForbiddenException(`Requiere rol ${permitidos.join(' / ')} en la empresa`);
+  }
+  return roles;
+}

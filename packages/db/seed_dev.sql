@@ -3,6 +3,7 @@
 -- Idempotente a nivel "base vacía": correr una sola vez después de migrate.
 -- Usuarios (login de desarrollo por correo):
 --   cabo@demo.mx · residente@demo.mx · compras@demo.mx · finanzas@demo.mx · director@demo.mx
+--   Checador (grupo de 5 empresas): dueno@grupo.mx · rh@p3.mx · kiosco@p3.mx · ana@p3.mx · rh@e2.mx
 -- =============================================================================
 SET search_path = oc, public;
 BEGIN;
@@ -73,5 +74,60 @@ INSERT INTO almacenes(id, obra_id, nombre) VALUES
 
 UPDATE obras SET presupuesto_estado = 'AUTORIZADO', presupuesto_autorizado_en = now()
  WHERE id = '00000000-0000-0000-0000-0000000000b1';
+
+-- -----------------------------------------------------------------------------
+-- Grupo de 5 empresas con checador (P3 + 4). Renombre E2…E5 con las reales.
+-- Cada empresa lleva su propio registro; dueno@grupo.mx tiene un usuario
+-- (DIRECTOR) en cada una y cambia de empresa sin volver a entrar.
+--   rh@p3.mx      RH de P3 (tablero, correcciones, cierre de quincena)
+--   kiosco@p3.mx  tableta de recepción de P3 (número de trabajador + PIN)
+--   ana@p3.mx     trabajadora de P3 que checa desde su celular
+-- -----------------------------------------------------------------------------
+UPDATE empresas SET clave = 'DEMO' WHERE id = '00000000-0000-0000-0000-0000000000e1';
+UPDATE empresas SET clave = 'OTRA' WHERE id = '00000000-0000-0000-0000-0000000000e2';
+
+INSERT INTO empresas(id, clave, nombre, rfc) VALUES
+ ('00000000-0000-0000-00c0-000000000001', 'P3', 'P3',        NULL),
+ ('00000000-0000-0000-00c0-000000000002', 'E2', 'Empresa 2', NULL),
+ ('00000000-0000-0000-00c0-000000000003', 'E3', 'Empresa 3', NULL),
+ ('00000000-0000-0000-00c0-000000000004', 'E4', 'Empresa 4', NULL),
+ ('00000000-0000-0000-00c0-000000000005', 'E5', 'Empresa 5', NULL);
+
+INSERT INTO usuarios(id, empresa_id, email, nombre)
+SELECT ('00000000-0000-0000-00c0-0000000001' || lpad(n::text, 2, '0'))::uuid,
+       ('00000000-0000-0000-00c0-00000000000' || n)::uuid, 'dueno@grupo.mx', 'Dirección del grupo'
+  FROM generate_series(1, 5) n;
+INSERT INTO empresa_roles(empresa_id, usuario_id, rol)
+SELECT ('00000000-0000-0000-00c0-00000000000' || n)::uuid, ('00000000-0000-0000-00c0-0000000001' || lpad(n::text, 2, '0'))::uuid,
+       'DIRECTOR'
+  FROM generate_series(1, 5) n;
+
+INSERT INTO usuarios(id, empresa_id, email, nombre) VALUES
+ ('00000000-0000-0000-00c0-000000000111','00000000-0000-0000-00c0-000000000001','rh@p3.mx','Recursos Humanos P3'),
+ ('00000000-0000-0000-00c0-000000000112','00000000-0000-0000-00c0-000000000001','kiosco@p3.mx','Kiosco recepción P3'),
+ ('00000000-0000-0000-00c0-000000000113','00000000-0000-0000-00c0-000000000001','ana@p3.mx','Ana López'),
+ ('00000000-0000-0000-00c0-000000000121','00000000-0000-0000-00c0-000000000002','rh@e2.mx','Recursos Humanos E2');
+INSERT INTO empresa_roles(empresa_id, usuario_id, rol) VALUES
+ ('00000000-0000-0000-00c0-000000000001','00000000-0000-0000-00c0-000000000111','RH'),
+ ('00000000-0000-0000-00c0-000000000001','00000000-0000-0000-00c0-000000000112','KIOSCO'),
+ ('00000000-0000-0000-00c0-000000000002','00000000-0000-0000-00c0-000000000121','RH');
+
+INSERT INTO centros_trabajo(id, empresa_id, clave, nombre, lat, lng, radio_m) VALUES
+ ('00000000-0000-0000-00c0-000000000201','00000000-0000-0000-00c0-000000000001','CEN','Sucursal Centro', 20.588800, -100.389900, 180),
+ ('00000000-0000-0000-00c0-000000000202','00000000-0000-0000-00c0-000000000001','NTE','Sucursal Norte',  20.640000, -100.410000, 150),
+ ('00000000-0000-0000-00c0-000000000203','00000000-0000-0000-00c0-000000000002','OFI','Oficina E2',      20.600000, -100.380000, 150);
+
+-- PIN de los trabajadores de kiosco en desarrollo: 1234
+INSERT INTO trabajadores(id, empresa_id, numero, nombre, usuario_id, centro_id, modalidades, pin_hash) VALUES
+ ('00000000-0000-0000-00c0-000000000301','00000000-0000-0000-00c0-000000000001','001','Ana López',
+  '00000000-0000-0000-00c0-000000000113','00000000-0000-0000-00c0-000000000201','{LUGAR_FIJO,MOVIL}', NULL),
+ ('00000000-0000-0000-00c0-000000000302','00000000-0000-0000-00c0-000000000001','002','Diego Ruiz',
+  NULL, NULL, '{DESDE_CASA,KIOSCO}', crypt('1234', gen_salt('bf', 8))),
+ ('00000000-0000-0000-00c0-000000000303','00000000-0000-0000-00c0-000000000001','003','Sofía Cruz',
+  NULL, '00000000-0000-0000-00c0-000000000201', '{MOVIL,KIOSCO}', crypt('1234', gen_salt('bf', 8))),
+ ('00000000-0000-0000-00c0-000000000304','00000000-0000-0000-00c0-000000000001','014','Marco Salas',
+  NULL, '00000000-0000-0000-00c0-000000000201', '{KIOSCO}', crypt('1234', gen_salt('bf', 8))),
+ ('00000000-0000-0000-00c0-000000000311','00000000-0000-0000-00c0-000000000002','001','Trabajador E2',
+  NULL, '00000000-0000-0000-00c0-000000000203', '{KIOSCO}', crypt('1234', gen_salt('bf', 8)));
 
 COMMIT;

@@ -10,6 +10,7 @@ const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 export const MIGRATIONS_DIR = path.join(ROOT, 'migrations');
 export const SEED_FILE = path.join(ROOT, 'seed_dev.sql');
 export const DEMO_FILE = path.join(ROOT, 'demo_flujo.sql');
+export const CHECADOR_FILE = path.join(ROOT, 'demo_checador.sql');
 
 /** @param {string} databaseUrl @param {{log?: (msg: string) => void}} [opts] */
 export async function migrate(databaseUrl, opts = {}) {

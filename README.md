@@ -4,6 +4,8 @@ Control de obra para constructoras pequeñas y medianas: **reconciliación conti
 
 La propuesta técnica completa (arquitectura, roles, modelo de datos, reglas de negocio y hoja de ruta) está en [`docs/PROPUESTA.md`](docs/PROPUESTA.md).
 
+El **checador digital multi‑empresa** (P3 y las demás empresas del grupo, cada una con su propio registro) está descrito en [`docs/CHECADOR.md`](docs/CHECADOR.md).
+
 ## Estructura
 
 ```
@@ -17,6 +19,7 @@ packages/
 desktop/    Precios unitarios para Windows (.NET 8, Avalonia, SQL Server) — ver desktop/README.md
 docs/
   PROPUESTA.md                       Propuesta técnica
+  CHECADOR.md                        Checador de asistencia multi-empresa
   importacion/plantilla_presupuesto.csv
 ```
 
@@ -35,7 +38,7 @@ pnpm build
 pnpm dev                           # API :3001, web :3000, Expo (app de campo)
 ```
 
-Usuarios de prueba (login de desarrollo, sin contraseña): `director@demo.mx`, `residente@demo.mx`, `compras@demo.mx`, `finanzas@demo.mx`, `cabo@demo.mx`.
+Usuarios de prueba (login de desarrollo, sin contraseña): `director@demo.mx`, `residente@demo.mx`, `compras@demo.mx`, `finanzas@demo.mx`, `cabo@demo.mx`. Checador del grupo: `dueno@grupo.mx` (5 empresas), `rh@p3.mx`, `kiosco@p3.mx`, `ana@p3.mx`, `rh@e2.mx`.
 
 App de campo: `pnpm --filter @obraclara/field dev` y abrir con Expo Go o un *development build*. En un teléfono físico, `EXPO_PUBLIC_API_URL` debe apuntar a la IP de su máquina, no a `localhost`.
 
@@ -49,9 +52,9 @@ pnpm turbo run test --concurrency=1
 
 | Paquete | Qué verifica |
 |---|---|
-| `@obraclara/db` | Migraciones sobre base vacía + 27 verificaciones de reglas de negocio en SQL (`demo_flujo.sql`) |
-| `@obraclara/api` | 15 pruebas de integración contra PostgreSQL real: RLS entre empresas, permisos por rol, semáforo VERDE/AMARILLO/ROJO, excepciones, sync idempotente, evidencias, KPIs |
-| `@obraclara/contracts` | Semáforo del lado cliente con los mismos casos que el SQL |
+| `@obraclara/db` | Migraciones sobre base vacía + verificaciones de reglas de negocio en SQL (`demo_flujo.sql`, `demo_checador.sql`) |
+| `@obraclara/api` | Pruebas de integración contra PostgreSQL real: RLS entre empresas, permisos por rol, semáforo VERDE/AMARILLO/ROJO, excepciones, sync idempotente, evidencias, KPIs; checador (geocerca, kiosco con PIN, lote sin señal, cierre de periodo, cambio de empresa y consolidado del grupo) |
+| `@obraclara/contracts` | Semáforo y secuencia de checadas del lado cliente con los mismos casos que el SQL |
 | `@obraclara/field` | Bandeja de salida offline: lotes, rechazos, caída de red a mitad del envío y reintento |
 
 ## Cómo está construido
@@ -73,6 +76,11 @@ pnpm turbo run test --concurrency=1
 | POST/GET | `/v1/obras/:id/avances` · `/v1/avances/:id/validar` · `/rechazar` | Avance físico |
 | POST | `/v1/sync/push` · GET `/v1/sync/pull/:obraId` | Sincronización de la app de campo |
 | POST | `/v1/archivos/prefirmar` · `/v1/archivos/confirmar` | Evidencias en S3/R2/MinIO |
+| GET/POST | `/v1/auth/empresas` · `/v1/auth/cambiar-empresa` | Empresas de la persona y cambio de empresa |
+| GET/POST | `/v1/checador/mi-dia` · `/checadas` · `/checadas/lote` · `/kiosco` | Checar desde celular (también sin señal) o kiosco |
+| GET/POST | `/v1/checador/tablero` · `/correcciones` · `/checadas/:id/anular` · `/trabajadores` · `/centros` | Supervisión (RH) |
+| GET/POST | `/v1/checador/periodos` · `/:id/cerrar` · `/:id/respuesta` · `/mis-periodos` | Cierre de quincena y aceptación |
+| GET | `/v1/grupo/asistencia` | Consolidado de las empresas del grupo |
 
 ## Pendiente para el MVP
 
