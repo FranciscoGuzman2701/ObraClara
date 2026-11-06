@@ -17,6 +17,14 @@ export function rutasEquipo(app: FastifyInstance, { db, sesiones }: Deps) {
       bitacora(c, { fecha: q.fecha ?? (await fechaLocal(c)), trabajadorId: q.trabajador_id }));
   });
 
+  /** Foto de una checada (sólo de la empresa de la sesión, por RLS). */
+  app.get<{ Params: { id: string } }>('/api/equipo/fotos/:id', async (req, reply) => {
+    const f = await sesiones.conMiembro(req, 'verEquipo', async (c) =>
+      (await c.query<{ mime: string; datos: Buffer }>('SELECT mime, datos FROM fotos WHERE id = $1', [req.params.id])).rows[0]);
+    if (!f) throw noEncontrado('Foto no encontrada');
+    return reply.header('content-type', f.mime).header('cache-control', 'private, max-age=86400').send(f.datos);
+  });
+
   /** RH captura una checada que faltó (olvido, celular sin batería…). Siempre con motivo. */
   app.post('/api/equipo/correcciones', async (req, reply) => {
     const b = E.Correccion.parse(req.body);

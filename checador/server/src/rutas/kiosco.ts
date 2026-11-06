@@ -52,7 +52,7 @@ export function rutasKiosco(app: FastifyInstance, { sesiones }: Deps) {
       const tipo = b.tipo ?? (await siguientes(c, t.id))[0];
       const ch = await insertarChecada(c, k.empresaId, {
         trabajadorId: t.id, tipo, medio: 'KIOSCO', modalidad: 'KIOSCO', centro_id: k.centroId,
-        client_uuid: b.client_uuid, cuentaId: null, dispositivoId: k.dispositivoId,
+        client_uuid: b.client_uuid, cuentaId: null, dispositivoId: k.dispositivoId, foto: b.foto,
       });
       return { checada: { ...ch, siguientes: await siguientes(c, t.id) } };
     });

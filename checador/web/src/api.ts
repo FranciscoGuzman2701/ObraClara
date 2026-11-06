@@ -75,3 +75,15 @@ export async function cambiarEmpresa(empresaId: string) {
 
 export const mensajeDe = (e: unknown) =>
   e instanceof SinConexion ? 'Sin conexión con el servidor' : e instanceof Error ? e.message : 'Error inesperado';
+
+/** Imagen protegida (foto de una checada) como URL local para <img>. */
+export async function urlImagen(ruta: string): Promise<string> {
+  let res: Response;
+  try {
+    res = await fetch(ruta, { headers: { authorization: `Bearer ${token.get()}` } });
+  } catch {
+    throw new SinConexion();
+  }
+  if (!res.ok) throw new ApiError(res.status, 'No se pudo cargar la foto');
+  return URL.createObjectURL(await res.blob());
+}

@@ -44,7 +44,19 @@ export const ALERTA: Record<Alerta, string> = {
   SECUENCIA: 'Fuera de secuencia',
   RETARDO: 'Retardo',
   NO_HA_LLEGADO: 'No ha llegado',
+  FUERA_DE_CASA: 'Fuera de casa',
+  CASA_SIN_APROBAR: 'Casa sin aprobar',
+  DIA_NO_REMOTO: 'No es día remoto',
+  ENVIO_DIFERIDO: 'Enviada tarde',
 };
+
+/** ISO: 1 = lunes … 7 = domingo */
+export const DIAS = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+export const DIAS_LARGOS = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+export function diaIso(zona = 'America/Mexico_City', fecha = new Date()) {
+  const d = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: zona }).format(fecha);
+  return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(d) + 1;
+}
 export const ESTADO: Record<EstadoAsistencia, string> = {
   TRABAJANDO: 'Trabajando',
   EN_DESCANSO: 'En descanso',

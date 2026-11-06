@@ -65,21 +65,41 @@ Aplican igual desde el celular, el kiosco, la cola sin señal o un script:
 - **Cierre de periodo.** Congela por trabajador las horas, los días, los retardos, las incidencias, las correcciones y las jornadas sin salida. Desde ese momento nadie checa ni corrige dentro del periodo. Cada trabajador responde una sola vez; si objeta, debe explicar el motivo.
 - **Kiosco.** Usa un token propio por tableta (RH lo genera y lo puede desactivar). El PIN se guarda con bcrypt y se bloquea 15 min después de 5 intentos fallidos.
 
+## Desde casa y fuera de un centro: cómo se controla
+
+Sin un centro con geocerca, cualquiera podría checar "desde casa" en cualquier lugar, a cualquier hora y en nombre de otro. Estas son las medidas:
+
+| Brecha | Medida | Si no se cumple |
+|---|---|---|
+| ¿Está en su casa? | El trabajador registra su casa **estando en ella** (GPS con menos de 150 m de error) y RH la aprueba viendo el mapa. Cambiar de casa requiere aprobación de nuevo. | `CASA_SIN_APROBAR` o `FUERA_DE_CASA` (con la distancia) |
+| ¿Le toca home office hoy? | Días permitidos por trabajador (p. ej. martes y jueves). | `DIA_NO_REMOTO` |
+| ¿Es él? | Selfie en vivo desde la cámara (no se puede elegir una foto de la galería), obligatoria al checar desde casa o en movimiento. RH la ve junto a la checada. El kiosco también toma foto si la tableta tiene cámara, para desanimar el préstamo del PIN. | Sin foto no se registra |
+| ¿A qué hora de verdad? | No se confía en el reloj del teléfono: la app envía cuándo se checó y cuándo se envió, ambos con el reloj del teléfono, y el servidor usa su hora menos esa diferencia. Adelantar o atrasar el reloj no cambia la hora registrada. | — |
+| ¿La guardó "sin señal" para inventar la hora? | Lo que llega más de 5 min después de checado queda marcado y RH ve ambas horas. Pasada la ventana de la empresa (48 h por omisión) se rechaza y la debe capturar RH. | `ENVIO_DIFERIDO` / rechazo |
+
+Lo dudoso **no se bloquea**: se registra y queda marcado para revisión. Así nadie se queda sin checar por un GPS que falla, y RH decide. En **Ajustes** se puede desactivar la foto y cambiar la ventana.
+
+**Lo que esto no resuelve** (hay que saberlo):
+- **GPS falso:** una app web no puede detectar un simulador de ubicación. Una app nativa para Android sí puede detectar la "ubicación simulada"; es el siguiente paso si se vuelve un problema.
+- **La foto prueba quién checó, no que siga trabajando.** No hay reconocimiento facial automático: RH revisa las fotos de las checadas marcadas.
+- **Checar ≠ trabajar.** Para home office, el checador demuestra presencia, no productividad.
+
 ## Sin señal
 
-La app del trabajador guarda cada checada en el teléfono con su hora real y un `client_uuid`, y la envía en lote (`/api/yo/checadas/lote`) en cuanto hay conexión. Reenviar no duplica. Un service worker permite abrir la app sin red. El kiosco, en cambio, sí requiere conexión: el PIN se valida en el servidor y no se guarda en la tableta.
+La app del trabajador guarda cada checada en el teléfono con su hora real, su foto y un `client_uuid`, y la envía en lote (`/api/yo/checadas/lote`) en cuanto hay conexión. Reenviar no duplica. Un service worker permite abrir la app sin red. El kiosco, en cambio, sí requiere conexión: el PIN se valida en el servidor y no se guarda en la tableta.
 
 ## Estructura
 
 ```
 server/
-  db/migrations/   esquema, reglas, RLS (001) y funciones de cuentas (002)
+  db/migrations/   esquema, reglas y RLS (001), funciones de cuentas (002), controles de desde casa (003)
   db/seed.sql      datos de ejemplo (grupo con 5 empresas)
   src/             Fastify: sesion.ts (JWT, permisos, kiosco), servicios.ts, rutas/
   test/            API completo y garantías de la base contra PostgreSQL real
 web/
   src/pantallas/   Checar (celular), Kiosco, Equipo, Trabajadores, Centros, Kioscos, Usuarios, Periodos, Grupo, Ajustes
   src/cola.ts      cola sin señal
+  src/camara.ts    selfie en vivo
   src/jornada.ts   reglas y textos que la app necesita sin conexión
 ```
 
@@ -95,5 +115,6 @@ Las pruebas usan `TEST_DATABASE_URL`: la base se borra y se vuelve a crear en ca
 
 - Inicio de sesión por código SMS/WhatsApp para trabajadores sin correo.
 - Horarios por día de la semana y turnos nocturnos (hoy hay una sola hora de entrada por trabajador).
-- Notificaciones push a RH (fuera de zona, no ha llegado).
+- Notificaciones push a RH (fuera de zona, fuera de casa, no ha llegado).
+- App nativa para Android que detecte la ubicación simulada.
 - Formato del CSV adaptado al sistema de nómina de cada empresa.

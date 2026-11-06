@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import type { ChecadaVista, FilaEquipo, Tablero, TipoChecada } from '../../../server/src/tipos';
-import { api } from '../api';
+import { api, urlImagen } from '../api';
 import { ALERTA, CHECADA, ESTADO, fechaLarga, hora, horas, instanteEnZona, MODALIDAD } from '../jornada';
 import { puede, useSesion } from '../sesion';
 import { Aviso, Campo, Cargando, Chip, Modal, Persona, useAccion, useCarga } from '../ui';
@@ -10,6 +10,10 @@ const TEXTO_INCIDENCIA: Record<string, (n: string) => string> = {
   SIN_UBICACION: (n) => `${n} checó sin ubicación.`,
   SECUENCIA: (n) => `${n} registró una checada fuera de secuencia.`,
   RETARDO: (n) => `${n} llegó tarde.`,
+  FUERA_DE_CASA: (n) => `${n} checó desde casa, pero lejos de su casa registrada.`,
+  CASA_SIN_APROBAR: (n) => `${n} checó desde una casa que aún no apruebas.`,
+  DIA_NO_REMOTO: (n) => `${n} checó desde casa en un día que no es de home office.`,
+  ENVIO_DIFERIDO: (n) => `${n} envió una checada tarde (estaba sin señal).`,
 };
 
 /** "Así va tu equipo": en vivo, con lo que necesita atención arriba. */
@@ -73,7 +77,15 @@ export function Equipo() {
         </div>
         <div>
           <h3>Necesita atención</h3>
-          {t.incidencias.length === 0 && sinLlegar.length === 0 && <p className="tenue">Todo en orden.</p>}
+          {t.incidencias.length === 0 && sinLlegar.length === 0 && t.casas_por_aprobar.length === 0 && <p className="tenue">Todo en orden.</p>}
+          {t.casas_por_aprobar.length > 0 && (
+            <a className="alerta-linea" href="#/trabajadores" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <span className="ico">⌂</span>
+              <div><strong>{t.casas_por_aprobar.length === 1 ? `${t.casas_por_aprobar[0].nombre} registró su casa` :
+                `${t.casas_por_aprobar.length} casas por aprobar`}</strong>
+                <div className="tenue" style={{ fontSize: 13 }}>Revísala en el mapa y apruébala en Trabajadores para que su home office cuente sin marcas.</div></div>
+            </a>
+          )}
           {t.incidencias.map((i) => (
             <div key={i.checada_id} className={`alerta-linea${i.incidencias.some((x) => x !== 'RETARDO') ? ' roja' : ''}`}>
               <span className="ico">!</span>
@@ -117,8 +129,10 @@ function DiaTrabajador({ fila, fecha, alCerrar }: { fila: FilaEquipo; fecha: str
             <li key={c.id} className={c.anulada ? 'anulada' : undefined}>
               <span className="h">{hora(c.ocurrido_en, zona)}</span>
               <span className="q">{CHECADA[c.tipo]}
-                <small>{c.medio === 'SUPERVISOR' ? `Corrección de RH: ${c.nota}` : `${c.modalidad ? MODALIDAD[c.modalidad] : ''}${c.centro ? ` · ${c.centro}` : ''}${c.distancia_m != null ? ` · ${c.distancia_m} m` : ''}`}
+                <small>{c.medio === 'SUPERVISOR' ? `Corrección de RH: ${c.nota}` : `${c.modalidad ? MODALIDAD[c.modalidad] : ''}${c.centro ? ` · ${c.centro}` : ''}${c.distancia_m != null ? ` · a ${c.distancia_m} m ${c.modalidad === 'DESDE_CASA' ? 'de su casa' : 'del centro'}` : ''}`}
+                  {Date.parse(c.recibido_en) - Date.parse(c.ocurrido_en) > 5 * 60_000 ? ` · llegó a las ${hora(c.recibido_en, zona)}` : ''}
                   {c.anulada ? ' · anulada' : ''}</small></span>
+              {c.foto_id && <FotoChecada id={c.foto_id} />}
               {c.incidencias.map((i) => <Chip key={i} clase={i}>{ALERTA[i]}</Chip>)}
               {gestiona && !c.anulada && <button className="boton chico peligro" onClick={() => setAnulando(c)}>Anular</button>}
             </li>
@@ -185,5 +199,22 @@ function Anulacion({ checada, alTerminar }: { checada: ChecadaVista; alTerminar:
       <div className="fila"><button className="boton peligro" disabled={a.ocupado}>Anular checada</button>
         <button type="button" className="boton" onClick={alTerminar}>Cancelar</button></div>
     </form>
+  );
+}
+
+function FotoChecada({ id }: { id: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [grande, setGrande] = useState(false);
+  useEffect(() => {
+    let u: string | null = null;
+    urlImagen(`/api/equipo/fotos/${id}`).then((x) => { u = x; setUrl(x); }).catch(() => setUrl(null));
+    return () => { if (u) URL.revokeObjectURL(u); };
+  }, [id]);
+  if (!url) return <span className="foto-mini" aria-hidden />;
+  return (
+    <>
+      <img className="foto-mini" src={url} alt="Foto de la checada" onClick={() => setGrande(!grande)} />
+      {grande && <div className="velo" onClick={() => setGrande(false)}><img className="foto-grande" style={{ maxWidth: 420 }} src={url} alt="Foto de la checada" /></div>}
+    </>
   );
 }

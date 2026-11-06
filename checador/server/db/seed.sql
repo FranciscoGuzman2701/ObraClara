@@ -6,6 +6,7 @@
 --   rh@p3.mx          RH de P3            supervisor@p3.mx  SUPERVISOR de P3
 --   ana@p3.mx · diego@p3.mx · sofia@p3.mx   trabajadores de P3 (checan en su celular)
 --   rh@e2.mx          RH de la Empresa 2 (para comprobar el aislamiento)
+--   Home office: Diego (martes y jueves, casa aprobada) · Sofía (casa propuesta, por aprobar)
 --
 -- Kioscos (en la pantalla "Kiosco" se pega el código de activación):
 --   P3 · Sucursal Centro   demo-kiosco-centro     P3 · Almacén Norte   demo-kiosco-norte
@@ -13,6 +14,8 @@
 --   PIN de los trabajadores de kiosco: 014 → 1234, 015 → 2345, 016 → 3456 (E2: 101 → 1111)
 -- =============================================================================
 SET search_path = checador, public;
+-- carga histórica: conserva las horas de los datos de ejemplo tal cual (sólo el dueño del esquema puede hacerlo)
+SET checador.importacion = 'on';
 BEGIN;
 
 INSERT INTO grupos(id, nombre) VALUES ('00000000-0000-4000-8000-000000000001', 'Grupo');
@@ -46,7 +49,7 @@ INSERT INTO centros(id, empresa_id, clave, nombre, direccion, lat, lng, radio_m)
 INSERT INTO trabajadores(id, empresa_id, numero, nombre, puesto, centro_id, modalidades, hora_entrada, pin_hash) VALUES
  ('00000000-0000-4000-8000-0000000000d1', '00000000-0000-4000-8000-0000000000a1', '001', 'Ana López',     'Recepción',     '00000000-0000-4000-8000-0000000000c1', '{LUGAR_FIJO,MOVIL}', '09:00', NULL),
  ('00000000-0000-4000-8000-0000000000d2', '00000000-0000-4000-8000-0000000000a1', '002', 'Diego Ruiz',    'Sistemas',      '00000000-0000-4000-8000-0000000000c1', '{LUGAR_FIJO,DESDE_CASA}', '09:00', NULL),
- ('00000000-0000-4000-8000-0000000000d3', '00000000-0000-4000-8000-0000000000a1', '003', 'Sofía Cruz',    'Ventas',        '00000000-0000-4000-8000-0000000000c1', '{MOVIL}', NULL, NULL),
+ ('00000000-0000-4000-8000-0000000000d3', '00000000-0000-4000-8000-0000000000a1', '003', 'Sofía Cruz',    'Ventas',        '00000000-0000-4000-8000-0000000000c1', '{MOVIL,DESDE_CASA}', NULL, NULL),
  ('00000000-0000-4000-8000-0000000000d4', '00000000-0000-4000-8000-0000000000a1', '014', 'Marco Salas',   'Almacén',       '00000000-0000-4000-8000-0000000000c2', '{KIOSCO}', '08:00', crypt('1234', gen_salt('bf', 8))),
  ('00000000-0000-4000-8000-0000000000d5', '00000000-0000-4000-8000-0000000000a1', '015', 'Lucía Herrera', 'Almacén',       '00000000-0000-4000-8000-0000000000c2', '{KIOSCO}', '08:00', crypt('2345', gen_salt('bf', 8))),
  ('00000000-0000-4000-8000-0000000000d6', '00000000-0000-4000-8000-0000000000a1', '016', 'Jorge Pineda',  'Mostrador',     '00000000-0000-4000-8000-0000000000c1', '{KIOSCO,LUGAR_FIJO}', '09:00', crypt('3456', gen_salt('bf', 8))),
@@ -55,6 +58,15 @@ INSERT INTO trabajadores(id, empresa_id, numero, nombre, puesto, centro_id, moda
  ('00000000-0000-4000-8000-0000000000e3', '00000000-0000-4000-8000-0000000000a3', '201', 'Rosa Vega',     'Operación',     '00000000-0000-4000-8000-0000000000c4', '{KIOSCO}', '09:00', crypt('1111', gen_salt('bf', 8))),
  ('00000000-0000-4000-8000-0000000000e4', '00000000-0000-4000-8000-0000000000a4', '301', 'Luis Mora',     'Operación',     '00000000-0000-4000-8000-0000000000c5', '{KIOSCO}', '09:00', crypt('1111', gen_salt('bf', 8))),
  ('00000000-0000-4000-8000-0000000000e5', '00000000-0000-4000-8000-0000000000a5', '401', 'Elena Soto',    'Operación',     '00000000-0000-4000-8000-0000000000c6', '{KIOSCO}', '09:00', crypt('1111', gen_salt('bf', 8)));
+
+-- home office: Diego martes y jueves con casa aprobada; Sofía propuso su casa y RH no la ha revisado
+UPDATE trabajadores SET dias_remotos = '{2,4}', casa_lat = 20.605000, casa_lng = -100.410000, casa_radio_m = 150,
+       casa_direccion = 'Col. Jardines, calle Rosal 12', casa_estado = 'APROBADA', casa_actualizada_en = now() - interval '20 days',
+       casa_aprobada_por = '00000000-0000-4000-8000-0000000000b2'
+ WHERE id = '00000000-0000-4000-8000-0000000000d2';
+UPDATE trabajadores SET casa_lat = 20.570000, casa_lng = -100.360000, casa_direccion = 'Fracc. Las Palmas 304',
+       casa_estado = 'PROPUESTA', casa_actualizada_en = now() - interval '1 day'
+ WHERE id = '00000000-0000-4000-8000-0000000000d3';
 
 INSERT INTO membresias(cuenta_id, empresa_id, rol, trabajador_id)
 SELECT '00000000-0000-4000-8000-0000000000b1'::uuid, id, 'ADMIN', NULL FROM empresas;
@@ -176,3 +188,4 @@ SELECT pg_temp.checar('00000000-0000-4000-8000-0000000000e3', 'ENTRADA', pg_temp
 SELECT pg_temp.checar('00000000-0000-4000-8000-0000000000e4', 'ENTRADA', pg_temp.hoy(175));
 
 COMMIT;
+RESET checador.importacion;

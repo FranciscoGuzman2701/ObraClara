@@ -1,14 +1,14 @@
 import { useState, type FormEvent } from 'react';
 import type { Centro, Modalidad, Trabajador } from '../../../server/src/tipos';
 import { api } from '../api';
-import { MODALIDAD } from '../jornada';
+import { DIAS, MODALIDAD } from '../jornada';
 import { puede, useSesion } from '../sesion';
 import { Aviso, Campo, Cargando, Chip, Modal, Persona, useAccion, useCarga } from '../ui';
 
 const AYUDA_MOD: Record<Modalidad, string> = {
   LUGAR_FIJO: 'Celular, sólo dentro de la zona de su centro',
-  DESDE_CASA: 'Celular, home office (sin zona)',
-  MOVIL: 'Celular, visitas a cliente (guarda ubicación)',
+  DESDE_CASA: 'Celular, home office: cerca de su casa aprobada, con foto',
+  MOVIL: 'Celular, visitas a cliente: guarda ubicación y foto',
   KIOSCO: 'Tableta compartida con número + PIN',
 };
 
@@ -43,6 +43,7 @@ export function Trabajadores() {
               <td className="ocultar-movil num">{t.hora_entrada ?? 'Libre'}</td>
               <td className="ocultar-movil">{t.cuenta_email ?? <span className="tenue">—</span>}</td>
               <td>{!t.activo ? <Chip clase="INACTIVO">Baja</Chip> : t.bloqueado ? <Chip clase="OBJETADO">PIN bloqueado</Chip>
+                : t.casa?.estado === 'PROPUESTA' ? <Chip clase="PENDIENTE">Casa por aprobar</Chip>
                 : <Chip clase="ACTIVO">Activo</Chip>}</td>
             </tr>
           ))}
@@ -59,7 +60,7 @@ function FormTrabajador({ t, centros, alCerrar }: { t: Trabajador | null; centro
   const [f, setF] = useState({
     numero: t?.numero ?? '', nombre: t?.nombre ?? '', puesto: t?.puesto ?? '', centro_id: t?.centro_id ?? '',
     modalidades: t?.modalidades ?? (['LUGAR_FIJO'] as Modalidad[]), hora_entrada: t?.hora_entrada ?? '',
-    jornada_h: String((t?.jornada_min ?? 480) / 60), pin: '', activo: t?.activo ?? true,
+    jornada_h: String((t?.jornada_min ?? 480) / 60), pin: '', activo: t?.activo ?? true, dias_remotos: t?.dias_remotos ?? [],
   });
   const a = useAccion();
   const set = (c: Partial<typeof f>) => setF({ ...f, ...c });
@@ -72,6 +73,7 @@ function FormTrabajador({ t, centros, alCerrar }: { t: Trabajador | null; centro
       const comun = {
         nombre: f.nombre, puesto: f.puesto || undefined, centro_id: f.centro_id || null, modalidades: f.modalidades,
         hora_entrada: f.hora_entrada || null, jornada_min: Math.round(Number(f.jornada_h) * 60), pin: f.pin || undefined,
+        dias_remotos: f.modalidades.includes('DESDE_CASA') ? f.dias_remotos : [],
       };
       if (t) await api(`/api/trabajadores/${t.id}`, { metodo: 'PATCH', body: { ...comun, activo: f.activo } });
       else await api('/api/trabajadores', { body: { ...comun, numero: f.numero } });
@@ -108,6 +110,15 @@ function FormTrabajador({ t, centros, alCerrar }: { t: Trabajador | null; centro
             <input inputMode="numeric" pattern="\d{4,6}" value={f.pin} onChange={(e) => set({ pin: e.target.value })}
               required={!t?.tiene_pin && f.modalidades.includes('KIOSCO')} /></Campo>
         </div>
+        {f.modalidades.includes('DESDE_CASA') && (
+          <div className="campo"><span>Días de home office</span>
+            <div className="casillas">{[1, 2, 3, 4, 5, 6, 7].map((d) => (
+              <label key={d} className="casilla"><input type="checkbox" checked={f.dias_remotos.includes(d)}
+                onChange={() => set({ dias_remotos: f.dias_remotos.includes(d) ? f.dias_remotos.filter((x) => x !== d) : [...f.dias_remotos, d].sort() })} />
+                {DIAS[d]}</label>))}</div>
+            <small className="tenue">{f.dias_remotos.length ? 'Checar desde casa otro día queda marcado.' : 'Sin días marcados = cualquier día.'}</small>
+          </div>
+        )}
         {t && <label className="casilla" style={{ marginBottom: 14 }}><input type="checkbox" checked={f.activo}
           onChange={(e) => set({ activo: e.target.checked })} />Activo (desmarcar para dar de baja)</label>}
         <Aviso>{a.error}</Aviso>
@@ -117,6 +128,7 @@ function FormTrabajador({ t, centros, alCerrar }: { t: Trabajador | null; centro
             await api(`/api/trabajadores/${t.id}`, { metodo: 'PATCH', body: { desbloquear: true } }); alCerrar(); })}>Desbloquear PIN</button>}
         </div>
       </form>
+      {t && t.modalidades.includes('DESDE_CASA') && <CasaTrabajador t={t} alListo={alCerrar} />}
       {t && !t.cuenta_email && t.activo && <AccesoCelular t={t} alListo={alCerrar} />}
     </Modal>
   );
@@ -145,5 +157,54 @@ function AccesoCelular({ t, alListo }: { t: Trabajador; alListo: () => void }) {
       <Aviso>{a.error}</Aviso>
       <button className="boton" disabled={a.ocupado}>Crear acceso</button>
     </form>
+  );
+}
+
+/** Casa del trabajador para home office: RH revisa la propuesta en el mapa y la aprueba, la corrige o la quita. */
+function CasaTrabajador({ t, alListo }: { t: Trabajador; alListo: () => void }) {
+  const c = t.casa;
+  const [editando, setEditando] = useState(false);
+  const [f, setF] = useState({ lat: c?.lat?.toString() ?? '', lng: c?.lng?.toString() ?? '', radio_m: String(c?.radio_m ?? 150),
+    direccion: c?.direccion ?? '' });
+  const a = useAccion();
+  const pedir = (body: object) => void a.correr(async () => {
+    await api(`/api/trabajadores/${t.id}`, { metodo: 'PATCH', body });
+    alListo();
+  });
+  const mapa = c ? `https://www.openstreetmap.org/?mlat=${c.lat}&mlon=${c.lng}#map=17/${c.lat}/${c.lng}` : null;
+  return (
+    <div style={{ borderTop: '1px solid var(--borde)', marginTop: 18, paddingTop: 16 }}>
+      <h3>Casa para home office</h3>
+      {!c ? <p className="tenue" style={{ marginTop: 0 }}>Aún no registra su casa. Puede hacerlo desde su celular estando en ella, o captúrala aquí.
+        Mientras no haya casa aprobada, sus checadas desde casa salen marcadas.</p> : (
+        <p style={{ marginTop: 0 }}>
+          {c.estado === 'PROPUESTA' ? <Chip clase="PENDIENTE">Propuesta por el trabajador</Chip> : <Chip clase="ACEPTADO">Aprobada</Chip>}
+          {' '}{c.direccion ?? 'Sin dirección'} · radio {c.radio_m} m
+          {t.casa_actualizada_en && <span className="tenue"> · {new Date(t.casa_actualizada_en).toLocaleDateString('es-MX')}</span>}
+          {mapa && <> · <a href={mapa} target="_blank" rel="noreferrer">Ver en el mapa</a></>}
+        </p>
+      )}
+      <Aviso>{a.error}</Aviso>
+      {!editando ? (
+        <div className="fila">
+          {c?.estado === 'PROPUESTA' && <button className="boton verde" disabled={a.ocupado} onClick={() => pedir({ aprobar_casa: true })}>Aprobar casa</button>}
+          <button className="boton" onClick={() => setEditando(true)}>{c ? 'Corregir' : 'Capturar casa'}</button>
+          {c && <button className="boton peligro" disabled={a.ocupado} onClick={() => {
+            if (confirm('¿Quitar la casa? Sus checadas desde casa saldrán marcadas hasta registrar otra.')) pedir({ casa: null });
+          }}>{c.estado === 'PROPUESTA' ? 'Rechazar' : 'Quitar'}</button>}
+        </div>
+      ) : (
+        <form onSubmit={(e) => { e.preventDefault(); pedir({ casa: { lat: Number(f.lat), lng: Number(f.lng), radio_m: Number(f.radio_m), direccion: f.direccion || null } }); }}>
+          <Campo etiqueta="Dirección"><input value={f.direccion} onChange={(e) => setF({ ...f, direccion: e.target.value })} /></Campo>
+          <div className="fila">
+            <Campo etiqueta="Latitud"><input inputMode="decimal" value={f.lat} onChange={(e) => setF({ ...f, lat: e.target.value })} required /></Campo>
+            <Campo etiqueta="Longitud"><input inputMode="decimal" value={f.lng} onChange={(e) => setF({ ...f, lng: e.target.value })} required /></Campo>
+            <Campo etiqueta="Radio (m)"><input type="number" min={30} max={1000} value={f.radio_m} onChange={(e) => setF({ ...f, radio_m: e.target.value })} /></Campo>
+          </div>
+          <div className="fila"><button className="boton primario" disabled={a.ocupado}>Guardar y aprobar</button>
+            <button type="button" className="boton" onClick={() => setEditando(false)}>Cancelar</button></div>
+        </form>
+      )}
+    </div>
   );
 }

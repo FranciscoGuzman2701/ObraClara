@@ -26,13 +26,15 @@ const PIN_SQL = (p: string) => `crypt(${p}, gen_salt('bf', 8))`;
 export function rutasCatalogos(app: FastifyInstance, { sesiones }: Deps) {
   // ------------------------------------------------------------ empresa
   app.get('/api/empresa', (req) => sesiones.conMiembro(req, null, async (c) =>
-    (await c.query('SELECT id, clave, nombre, rfc, zona_horaria, tolerancia_min FROM empresas')).rows[0]));
+    (await c.query('SELECT id, clave, nombre, rfc, zona_horaria, tolerancia_min, foto_sin_geocerca, ventana_diferida_h FROM empresas')).rows[0]));
 
   app.patch('/api/empresa', (req) => {
     const b = z.object({
       nombre: z.string().trim().min(2).max(120).optional(),
       rfc: z.string().trim().max(13).nullable().optional(),
       tolerancia_min: z.number().int().min(0).max(120).optional(),
+      foto_sin_geocerca: z.boolean().optional(),
+      ventana_diferida_h: z.number().int().min(1).max(168).optional(),
       zona_horaria: z.enum(['America/Mexico_City', 'America/Monterrey', 'America/Merida', 'America/Cancun',
                             'America/Chihuahua', 'America/Hermosillo', 'America/Mazatlan', 'America/Tijuana']).optional(),
     }).parse(req.body);
@@ -47,7 +49,10 @@ export function rutasCatalogos(app: FastifyInstance, { sesiones }: Deps) {
     const { rows } = await c.query<Trabajador>(
       `SELECT t.id, t.numero, t.nombre, t.puesto, t.centro_id, ct.nombre AS centro, t.modalidades::text[] AS modalidades,
               to_char(t.hora_entrada, 'HH24:MI') AS hora_entrada, t.jornada_min, t.pin_hash IS NOT NULL AS tiene_pin,
-              COALESCE(t.bloqueado_hasta > now(), false) AS bloqueado, u.email AS cuenta_email, t.activo
+              COALESCE(t.bloqueado_hasta > now(), false) AS bloqueado, u.email AS cuenta_email, t.activo,
+              t.dias_remotos::int[] AS dias_remotos, t.casa_actualizada_en,
+              CASE WHEN t.casa_estado IS NOT NULL THEN json_build_object('lat', t.casa_lat, 'lng', t.casa_lng,
+                'radio_m', t.casa_radio_m, 'direccion', t.casa_direccion, 'estado', t.casa_estado) END AS casa
          FROM trabajadores t LEFT JOIN centros ct ON ct.id = t.centro_id
          LEFT JOIN usuarios_empresa() u ON u.trabajador_id = t.id
         ORDER BY t.activo DESC, t.numero`);
@@ -58,22 +63,38 @@ export function rutasCatalogos(app: FastifyInstance, { sesiones }: Deps) {
     const b = E.NuevoTrabajador.parse(req.body);
     if (b.modalidades.includes('KIOSCO') && !b.pin) throw invalido('Para checar en kiosco necesita un PIN');
     const r = await sesiones.conMiembro(req, 'gestionar', async (c, m) => (await c.query<{ id: string }>(
-      `INSERT INTO trabajadores(empresa_id, numero, nombre, puesto, centro_id, modalidades, hora_entrada, jornada_min, pin_hash)
-       VALUES ($1, $2, $3, $4, $5, $6::modalidad[], $7, $8, CASE WHEN $9::text IS NULL THEN NULL ELSE crypt($9, gen_salt('bf', 8)) END)
+      `INSERT INTO trabajadores(empresa_id, numero, nombre, puesto, centro_id, modalidades, hora_entrada, jornada_min, pin_hash,
+                                dias_remotos)
+       VALUES ($1, $2, $3, $4, $5, $6::modalidad[], $7, $8, CASE WHEN $9::text IS NULL THEN NULL ELSE crypt($9, gen_salt('bf', 8)) END,
+               $10::smallint[])
        RETURNING id`,
       [m.empresaId, b.numero, b.nombre, b.puesto || null, b.centro_id ?? null, b.modalidades, b.hora_entrada ?? null,
-       b.jornada_min, b.pin ?? null])).rows[0]);
+       b.jornada_min, b.pin ?? null, b.dias_remotos ?? []])).rows[0]);
     return reply.status(201).send(r);
   });
 
   app.patch<{ Params: { id: string } }>('/api/trabajadores/:id', (req) => {
-    const { pin, desbloquear, modalidades, ...b } = E.EditarTrabajador.parse(req.body);
-    return sesiones.conMiembro(req, 'gestionar', async (c) => {
+    const { pin, desbloquear, modalidades, casa, aprobar_casa, ...b } = E.EditarTrabajador.parse(req.body);
+    return sesiones.conMiembro(req, 'gestionar', async (c, m) => {
       const campos: Record<string, unknown> = { ...b, pin_hash: pin, modalidades };
       if (desbloquear || pin) Object.assign(campos, { intentos_pin: 0, bloqueado_hasta: null });
+      if (casa === null) {
+        Object.assign(campos, { casa_lat: null, casa_lng: null, casa_direccion: null, casa_estado: null, casa_aprobada_por: null });
+      } else if (casa) {
+        // RH la captura o la corrige: queda aprobada por RH
+        Object.assign(campos, { casa_lat: casa.lat, casa_lng: casa.lng, casa_radio_m: casa.radio_m,
+          casa_direccion: casa.direccion ?? null, casa_estado: 'APROBADA', casa_aprobada_por: m.cuentaId,
+          casa_actualizada_en: new Date().toISOString() });
+      }
       const ok = await actualizar(c, 'trabajadores', req.params.id, campos, {
-        pin_hash: PIN_SQL, modalidades: (p) => `${p}::modalidad[]`,
+        pin_hash: PIN_SQL, modalidades: (p) => `${p}::modalidad[]`, dias_remotos: (p) => `${p}::smallint[]`,
       });
+      if (aprobar_casa) {
+        const { rowCount } = await c.query(
+          `UPDATE trabajadores SET casa_estado = 'APROBADA', casa_aprobada_por = $2 WHERE id = $1 AND casa_estado = 'PROPUESTA'`,
+          [req.params.id, m.cuentaId]);
+        if (!rowCount) throw invalido('No hay una casa por aprobar');
+      }
       if (!ok) throw noEncontrado('Trabajador no encontrado');
       const { rows: [t] } = await c.query<{ sin_pin: boolean }>(
         `SELECT 'KIOSCO' = ANY (modalidades) AND pin_hash IS NULL AS sin_pin FROM trabajadores WHERE id = $1`, [req.params.id]);

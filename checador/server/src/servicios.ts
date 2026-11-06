@@ -16,6 +16,32 @@ export interface NuevaChecada {
   client_uuid?: string;
   cuentaId: string | null;
   dispositivoId?: string;
+  foto?: { base64: string };
+  /** reloj del dispositivo al enviar; se usa para corregir su desfase */
+  enviado_en?: string;
+}
+
+/**
+ * Hora real de la checada sin confiar en el reloj del teléfono: lo que pasó entre
+ * checar y enviar se mide con el mismo reloj, así que su desfase se cancela.
+ */
+export function horaReal(ocurrido_en: string | undefined, enviado_en: string | undefined, ahora = Date.now()): string | undefined {
+  if (!ocurrido_en || !enviado_en) return ocurrido_en;
+  const espera = Math.max(0, Date.parse(enviado_en) - Date.parse(ocurrido_en));
+  return new Date(ahora - espera).toISOString();
+}
+
+/** Guarda la foto de una checada. El tipo se deduce del contenido, no de lo que diga el cliente. */
+export async function guardarFoto(c: Cliente, empresaId: string, base64: string): Promise<string> {
+  const datos = Buffer.from(base64.replace(/^data:[^,]*,/, ''), 'base64');
+  const jpeg = datos[0] === 0xff && datos[1] === 0xd8 && datos[2] === 0xff;
+  const webp = datos.subarray(0, 4).toString('latin1') === 'RIFF' && datos.subarray(8, 12).toString('latin1') === 'WEBP';
+  if (!jpeg && !webp) throw new HttpError(422, 'La foto no es una imagen válida');
+  if (datos.length > 400_000) throw new HttpError(422, 'Foto demasiado grande');
+  const { rows: [f] } = await c.query<{ id: string }>(
+    'INSERT INTO fotos(empresa_id, mime, datos) VALUES ($1, $2, $3) RETURNING id',
+    [empresaId, jpeg ? 'image/jpeg' : 'image/webp', datos]);
+  return f.id;
 }
 
 /**
@@ -34,17 +60,18 @@ export async function insertarChecada(c: Cliente, empresaId: string, n: NuevaChe
       return { ...resto, duplicado: true };
     }
   }
+  const fotoId = n.foto ? await guardarFoto(c, empresaId, n.foto.base64) : null;
   const { rows: [ch] } = await c.query(
     `WITH ins AS (
        INSERT INTO checadas(empresa_id, trabajador_id, tipo, medio, modalidad, ocurrido_en, centro_id, lat, lng,
-                            precision_m, nota, client_uuid, cuenta_id, dispositivo_id)
-       VALUES ($1, $2, $3, $4, $5, COALESCE($6::timestamptz, now()), $7, $8, $9, $10, $11, $12, $13, $14)
+                            precision_m, nota, client_uuid, cuenta_id, dispositivo_id, foto_id)
+       VALUES ($1, $2, $3, $4, $5, COALESCE($6::timestamptz, now()), $7, $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING id, trabajador_id, tipo, ocurrido_en, incidencias, distancia_m)
      SELECT ins.id, t.nombre AS trabajador, ins.tipo, ins.ocurrido_en, ins.incidencias, ins.distancia_m
        FROM ins JOIN trabajadores t ON t.id = ins.trabajador_id`,
-    [empresaId, n.trabajadorId, n.tipo, n.medio, n.modalidad, n.ocurrido_en ?? null, n.centro_id ?? null,
+    [empresaId, n.trabajadorId, n.tipo, n.medio, n.modalidad, horaReal(n.ocurrido_en, n.enviado_en) ?? null, n.centro_id ?? null,
      n.lat ?? null, n.lng ?? null, n.precision_m ?? null, n.nota ?? null, n.client_uuid ?? null, n.cuentaId,
-     n.dispositivoId ?? null]);
+     n.dispositivoId ?? null, fotoId]);
   return { ...ch, duplicado: false };
 }
 
@@ -61,7 +88,7 @@ export async function fechaLocal(c: Cliente): Promise<string> {
 }
 
 const COLUMNAS_CHECADA = `c.id, c.tipo, c.ocurrido_en, c.medio, c.modalidad::text, ct.nombre AS centro, c.incidencias, c.distancia_m,
-  c.nota, EXISTS (SELECT 1 FROM checadas_anuladas a WHERE a.checada_id = c.id) AS anulada`;
+  c.nota, EXISTS (SELECT 1 FROM checadas_anuladas a WHERE a.checada_id = c.id) AS anulada, c.recibido_en, c.foto_id`;
 
 export async function bitacora(c: Cliente, filtro: { trabajadorId?: string; fecha: string }): Promise<(ChecadaVista & {
   trabajador_id: string; trabajador: string; numero: string })[]> {
@@ -113,6 +140,8 @@ export async function armarTablero(c: Cliente, fecha?: string): Promise<Tablero>
        FROM v_checadas c JOIN trabajadores t ON t.id = c.trabajador_id
       WHERE c.fecha = $1::date AND cardinality(c.incidencias) > 0
       ORDER BY c.ocurrido_en DESC`, [e.fecha]);
+  const { rows: casas } = await c.query(
+    `SELECT id AS trabajador_id, nombre FROM trabajadores WHERE activo AND casa_estado = 'PROPUESTA' ORDER BY casa_actualizada_en`);
   const cuenta = (estado: string) => equipo.filter((t) => t.estado === estado).length;
   return {
     empresa: { id: e.id, clave: e.clave, nombre: e.nombre },
@@ -126,6 +155,7 @@ export async function armarTablero(c: Cliente, fecha?: string): Promise<Tablero>
       requieren_atencion: equipo.filter((t) => t.alertas.length > 0).length,
       total: equipo.length,
     },
+    casas_por_aprobar: casas,
     equipo,
     incidencias,
   };

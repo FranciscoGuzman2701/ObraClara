@@ -3,7 +3,8 @@ import { api } from '../api';
 import { puede, ROL, useSesion } from '../sesion';
 import { Aviso, Campo, Cargando, useAccion, useCarga } from '../ui';
 
-interface Empresa { id: string; clave: string; nombre: string; rfc: string | null; zona_horaria: string; tolerancia_min: number }
+interface Empresa { id: string; clave: string; nombre: string; rfc: string | null; zona_horaria: string; tolerancia_min: number;
+  foto_sin_geocerca: boolean; ventana_diferida_h: number }
 const ZONAS = ['America/Mexico_City', 'America/Monterrey', 'America/Merida', 'America/Cancun', 'America/Chihuahua',
   'America/Hermosillo', 'America/Mazatlan', 'America/Tijuana'];
 
@@ -40,7 +41,8 @@ function DatosEmpresa() {
     e.preventDefault();
     setOk(false);
     void a.correr(async () => {
-      await api('/api/empresa', { metodo: 'PATCH', body: { nombre: v.nombre, rfc: v.rfc || null, tolerancia_min: v.tolerancia_min, zona_horaria: v.zona_horaria } });
+      await api('/api/empresa', { metodo: 'PATCH', body: { nombre: v.nombre, rfc: v.rfc || null, tolerancia_min: v.tolerancia_min,
+        zona_horaria: v.zona_horaria, foto_sin_geocerca: v.foto_sin_geocerca, ventana_diferida_h: v.ventana_diferida_h } });
       actualizar(await api('/api/sesion'));
       setOk(true);
     });
@@ -60,6 +62,13 @@ function DatosEmpresa() {
           </select>
         </Campo>
       </div>
+      <Campo etiqueta="Checadas sin señal: aceptar hasta (horas)" ayuda="Después de esto la checada se rechaza y la debe capturar RH. Las que lleguen más de 5 min tarde se marcan.">
+        <input type="number" min={1} max={168} value={v.ventana_diferida_h} onChange={(e) => setF({ ...f, ventana_diferida_h: Number(e.target.value) })} />
+      </Campo>
+      <label className="casilla" style={{ marginBottom: 14 }}>
+        <input type="checkbox" checked={v.foto_sin_geocerca} onChange={(e) => setF({ ...f, foto_sin_geocerca: e.target.checked })} />
+        Pedir foto al checar desde casa o en movimiento
+      </label>
       <Aviso>{a.error}</Aviso>
       {ok && <Aviso tipo="ok">Guardado</Aviso>}
       <button className="boton primario" disabled={a.ocupado}>Guardar</button>

@@ -53,4 +53,20 @@ describe('base de datos', () => {
       VALUES ('${P3.empresaId}', '00000000-0000-4000-8000-0000000000d3', 'SALIDA', 'SUPERVISOR', now(), '${P3.cuentaId}')`,
       /checada_supervisor_con_motivo/);
   });
+
+  it('la aplicación no puede activar el modo de carga histórica para saltarse las reglas', async () => {
+    await rechaza(P3, `SELECT set_config('checador.importacion', 'on', true);
+      INSERT INTO checadas(empresa_id, trabajador_id, tipo, medio, modalidad, ocurrido_en, cuenta_id)
+      VALUES ('${P3.empresaId}', '00000000-0000-4000-8000-0000000000d3', 'SALIDA', 'CELULAR', 'DESDE_CASA',
+              now() - interval '3 hours', '${P3.cuentaId}')`, /se necesita una foto|límite es 48 h/);
+  });
+
+  it('las fotos de una empresa no se ven desde otra', async () => {
+    const id = await db.empresa(P3, async (c) => (await c.query(
+      `INSERT INTO fotos(empresa_id, mime, datos) VALUES ($1, 'image/jpeg', $2) RETURNING id`,
+      [P3.empresaId, Buffer.alloc(2000, 0xff)])).rows[0].id);
+    const ver = (ctx: typeof P3) => db.empresa(ctx, async (c) => (await c.query('SELECT count(*) AS n FROM fotos WHERE id = $1', [id])).rows[0].n);
+    assert.equal(await ver(P3), 1);
+    assert.equal(await ver(E2), 0);
+  });
 });

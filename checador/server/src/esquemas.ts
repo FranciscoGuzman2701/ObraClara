@@ -8,6 +8,11 @@ export const Tipo = z.enum(['ENTRADA', 'INICIO_DESCANSO', 'FIN_DESCANSO', 'SALID
 export const Modalidad = z.enum(['LUGAR_FIJO', 'DESDE_CASA', 'MOVIL', 'KIOSCO']);
 export const Rol = z.enum(['ADMIN', 'RH', 'SUPERVISOR', 'TRABAJADOR']);
 const pin = z.string().regex(/^\d{4,6}$/, 'El PIN son de 4 a 6 dígitos');
+/** Foto en base64 (la app la reduce a ~480 px; unos 30–60 KB). El tipo real se revisa por su contenido. */
+export const Foto = z.object({ base64: z.string().min(1300).max(540_000, 'Foto demasiado grande') });
+const lat = z.number().min(-90).max(90);
+const lng = z.number().min(-180).max(180);
+const dias = z.array(z.number().int().min(1).max(7)).max(7);
 
 export const Login = z.object({ email: z.email('Correo inválido'), password: z.string().min(1, 'Escriba su contraseña').max(200) });
 export const CambiarEmpresa = z.object({ empresa_id: id });
@@ -24,6 +29,8 @@ export const Checar = z.object({
   lng: z.number().min(-180).max(180).optional(),
   precision_m: z.number().nonnegative().max(100000).optional(),
   client_uuid: id.optional(),
+  foto: Foto.optional(),
+  enviado_en: fechaHora.optional(),
 }).refine((c) => (c.lat === undefined) === (c.lng === undefined), { message: 'Ubicación incompleta', path: ['lat'] });
 
 export const Lote = z.object({
@@ -35,7 +42,10 @@ export const Lote = z.object({
     lng: z.number().min(-180).max(180).optional(),
     precision_m: z.number().nonnegative().max(100000).optional(),
     client_uuid: id,
-  })).min(1).max(200),
+    foto: Foto.optional(),
+  })).min(1).max(60),
+  /** reloj del teléfono al enviar: con él se corrige un reloj adelantado o atrasado */
+  enviado_en: fechaHora.optional(),
 });
 
 export const Kiosco = z.object({
@@ -43,6 +53,7 @@ export const Kiosco = z.object({
   pin,
   tipo: Tipo.optional(),
   client_uuid: id.optional(),
+  foto: Foto.optional(),
 });
 export const ActivarKiosco = z.object({ centro_id: id, nombre: z.string().trim().min(2).max(60) });
 
@@ -64,11 +75,21 @@ export const NuevoTrabajador = z.object({
   hora_entrada: horaEntrada.optional(),
   jornada_min: z.number().int().min(60).max(1440).default(480),
   pin: pin.optional(),
+  dias_remotos: dias.optional(),
 });
+const CasaRh = z.object({ lat, lng, radio_m: z.number().int().min(30).max(1000).default(150),
+  direccion: z.string().trim().max(200).nullable().optional() });
 export const EditarTrabajador = NuevoTrabajador.omit({ numero: true }).partial().extend({
   activo: z.boolean().optional(),
   desbloquear: z.boolean().optional(),
+  /** RH fija o corrige la casa (queda aprobada); null la borra */
+  casa: CasaRh.nullable().optional(),
+  /** RH aprueba la casa que propuso el trabajador */
+  aprobar_casa: z.boolean().optional(),
 });
+/** El trabajador propone su casa desde su celular, estando en ella. */
+export const MiCasa = z.object({ lat, lng, precision_m: z.number().nonnegative().max(100000),
+  direccion: z.string().trim().min(5, 'Escribe tu dirección').max(200) });
 
 export const NuevoCentro = z.object({
   clave: z.string().trim().toUpperCase().regex(/^[A-Z0-9-]{1,12}$/, 'Clave: hasta 12 letras o dígitos'),

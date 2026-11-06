@@ -1,6 +1,6 @@
 import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { cliente, diaLocal, haceMin, prepararApp } from './ayuda.js';
 
@@ -21,7 +21,7 @@ const t: Record<string, string> = {};
 before(async () => {
   app = await prepararApp();
   api = cliente(app);
-  for (const u of ['dueno@grupo.mx', 'rh@p3.mx', 'supervisor@p3.mx', 'ana@p3.mx', 'diego@p3.mx', 'rh@e2.mx']) {
+  for (const u of ['dueno@grupo.mx', 'rh@p3.mx', 'supervisor@p3.mx', 'ana@p3.mx', 'diego@p3.mx', 'sofia@p3.mx', 'rh@e2.mx']) {
     t[u] = await api.entrar(u);
   }
 });
@@ -87,19 +87,18 @@ describe('celular del trabajador', () => {
     assert.equal(r.body.trabajador.centro, 'Sucursal Centro');
   });
 
-  it('fuera de la geocerca se registra, pero queda marcada', async () => {
-    const r = await api.pedir('POST', '/api/yo/checadas', {
-      token: t['ana@p3.mx'], body: { tipo: 'INICIO_DESCANSO', modalidad: 'LUGAR_FIJO', ocurrido_en: haceMin(6), ...LEJOS },
-    });
+  it('fuera de la geocerca se registra, pero queda marcada (y si llegó tarde, también)', async () => {
+    // checó hace 30 min sin señal y la envió ahora
+    const r = await api.pedir('POST', '/api/yo/checadas', { token: t['ana@p3.mx'], body: {
+      tipo: 'INICIO_DESCANSO', modalidad: 'LUGAR_FIJO', ocurrido_en: haceMin(30), enviado_en: haceMin(0), ...LEJOS } });
     assert.equal(r.status, 201);
-    assert.deepEqual(r.body.incidencias, ['FUERA_DE_ZONA']);
+    assert.deepEqual(r.body.incidencias, ['ENVIO_DIFERIDO', 'FUERA_DE_ZONA']);
     assert.ok(r.body.distancia_m > 1000);
   });
 
   it('doble toque: rechazado', async () => {
-    const r = await api.pedir('POST', '/api/yo/checadas', {
-      token: t['ana@p3.mx'], body: { tipo: 'INICIO_DESCANSO', modalidad: 'LUGAR_FIJO', ocurrido_en: haceMin(5), ...CERCA },
-    });
+    const r = await api.pedir('POST', '/api/yo/checadas', { token: t['ana@p3.mx'], body: {
+      tipo: 'INICIO_DESCANSO', modalidad: 'LUGAR_FIJO', ocurrido_en: haceMin(29.5), enviado_en: haceMin(0), ...CERCA } });
     assert.equal(r.status, 422);
     assert.match(r.body.mensaje, /Ya se registró inicio descanso/);
   });
@@ -111,9 +110,9 @@ describe('celular del trabajador', () => {
   });
 
   it('sin señal: el lote se aplica en orden y reenviarlo no duplica', async () => {
-    const lote = { checadas: [
-      { client_uuid: randomUUID(), tipo: 'SALIDA', modalidad: 'LUGAR_FIJO', ocurrido_en: haceMin(2), ...CERCA },
-      { client_uuid: randomUUID(), tipo: 'FIN_DESCANSO', modalidad: 'LUGAR_FIJO', ocurrido_en: haceMin(4), ...CERCA },
+    const lote = { enviado_en: haceMin(0), checadas: [
+      { client_uuid: randomUUID(), tipo: 'SALIDA', modalidad: 'LUGAR_FIJO', ocurrido_en: haceMin(10), ...CERCA },
+      { client_uuid: randomUUID(), tipo: 'FIN_DESCANSO', modalidad: 'LUGAR_FIJO', ocurrido_en: haceMin(20), ...CERCA },
     ] };
     const r1 = await api.pedir('POST', '/api/yo/checadas/lote', { token: t['ana@p3.mx'], body: lote });
     assert.deepEqual(r1.body.resultados.map((r: { estado: string }) => r.estado), ['ACEPTADA', 'ACEPTADA']);
@@ -121,6 +120,25 @@ describe('celular del trabajador', () => {
     assert.deepEqual(r2.body.resultados.map((r: { estado: string }) => r.estado), ['DUPLICADA', 'DUPLICADA']);
     const dia = await api.pedir('GET', '/api/yo/dia', { token: t['ana@p3.mx'] });
     assert.deepEqual(dia.body.siguientes, ['ENTRADA']);
+  });
+
+  it('reloj del teléfono adelantado una hora: cuenta la hora real', async () => {
+    const r = await api.pedir('POST', '/api/yo/checadas', { token: t['ana@p3.mx'], body: {
+      tipo: 'ENTRADA', modalidad: 'LUGAR_FIJO', ocurrido_en: haceMin(-59), enviado_en: haceMin(-60), ...CERCA } });
+    assert.equal(r.status, 201);
+    const desfase = Date.now() - Date.parse(r.body.ocurrido_en);
+    assert.ok(desfase > 30_000 && desfase < 120_000, `quedó ${desfase} ms antes de ahora`);
+    assert.deepEqual(r.body.incidencias, []);
+  });
+
+  it('una checada guardada sin señal más allá de la ventana de la empresa: la debe capturar RH', async () => {
+    // la empresa acorta la ventana a 1 h (por omisión son 48 h)
+    assert.equal((await api.pedir('PATCH', '/api/empresa', { token: t.duenoP3, body: { ventana_diferida_h: 1 } })).status, 200);
+    const r = await api.pedir('POST', '/api/yo/checadas', { token: t['ana@p3.mx'], body: {
+      tipo: 'INICIO_DESCANSO', modalidad: 'LUGAR_FIJO', ocurrido_en: haceMin(90), enviado_en: haceMin(0), ...CERCA } });
+    assert.equal(r.status, 422);
+    assert.match(r.body.mensaje, /llegó 1 h después de hecha y el límite es 1 h/);
+    await api.pedir('PATCH', '/api/empresa', { token: t.duenoP3, body: { ventana_diferida_h: 48 } });
   });
 
   it('hora en el futuro (reloj adelantado): rechazada', async () => {
@@ -134,6 +152,83 @@ describe('celular del trabajador', () => {
   it('una cuenta sin ficha de trabajador no checa', async () => {
     const r = await api.pedir('POST', '/api/yo/checadas', { token: t['rh@p3.mx'], body: { tipo: 'ENTRADA', modalidad: 'MOVIL' } });
     assert.equal(r.status, 403);
+  });
+});
+
+describe('desde casa', () => {
+  const DIEGO = '00000000-0000-4000-8000-0000000000d2';
+  const CASA_DIEGO = { lat: 20.6051, lng: -100.4101, precision_m: 10 };
+  const CASA_SOFIA = { lat: 20.5701, lng: -100.3601, precision_m: 10 };
+  const foto = { base64: Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), randomBytes(3000)]).toString('base64') };
+  // Diego tiene home office martes y jueves
+  const hoyIso = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Mexico_City', weekday: 'short' })
+    .formatToParts(new Date()).find((p) => p.type === 'weekday')!.value.replace(/Mon|Tue|Wed|Thu|Fri|Sat|Sun/,
+      (d) => String(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(d) + 1)));
+  const diaRemoto = hoyIso === 2 || hoyIso === 4;
+  let fotoId = '';
+
+  it('sin foto no se puede checar desde casa', async () => {
+    const r = await api.pedir('POST', '/api/yo/checadas', { token: t['diego@p3.mx'], body: {
+      tipo: 'INICIO_DESCANSO', modalidad: 'DESDE_CASA', ...CASA_DIEGO } });
+    assert.equal(r.status, 422);
+    assert.match(r.body.mensaje, /se necesita una foto/);
+  });
+
+  it('un archivo que no es imagen no cuenta como foto', async () => {
+    const r = await api.pedir('POST', '/api/yo/checadas', { token: t['diego@p3.mx'], body: {
+      tipo: 'INICIO_DESCANSO', modalidad: 'DESDE_CASA', ...CASA_DIEGO, foto: { base64: Buffer.from('x'.repeat(2000)).toString('base64') } } });
+    assert.equal(r.status, 422);
+    assert.match(r.body.mensaje, /no es una imagen/);
+  });
+
+  it('en su casa aprobada, con foto: sin incidencias (salvo que hoy no sea su día de home office)', async () => {
+    const r = await api.pedir('POST', '/api/yo/checadas', { token: t['diego@p3.mx'], body: {
+      tipo: 'INICIO_DESCANSO', modalidad: 'DESDE_CASA', ...CASA_DIEGO, foto } });
+    assert.equal(r.status, 201);
+    assert.deepEqual(r.body.incidencias, diaRemoto ? [] : ['DIA_NO_REMOTO']);
+    assert.ok(r.body.distancia_m < 50);
+  });
+
+  it('lejos de su casa: FUERA_DE_CASA, con la distancia', async () => {
+    const r = await api.pedir('POST', '/api/yo/checadas', { token: t['diego@p3.mx'], body: {
+      tipo: 'FIN_DESCANSO', modalidad: 'DESDE_CASA', lat: 20.70, lng: -100.41, precision_m: 10, foto } });
+    assert.ok(r.body.incidencias.includes('FUERA_DE_CASA'));
+    assert.ok(r.body.distancia_m > 10_000);
+  });
+
+  it('RH ve la foto; otra empresa no', async () => {
+    const b = await api.pedir('GET', `/api/equipo/bitacora?trabajador_id=${DIEGO}`, { token: t['rh@p3.mx'] });
+    fotoId = b.body.find((x: { foto_id: string | null }) => x.foto_id).foto_id;
+    const f = await api.pedir('GET', `/api/equipo/fotos/${fotoId}`, { token: t['rh@p3.mx'] });
+    assert.equal(f.status, 200);
+    assert.equal(f.headers['content-type'], 'image/jpeg');
+    assert.equal((await api.pedir('GET', `/api/equipo/fotos/${fotoId}`, { token: t['rh@e2.mx'] })).status, 404);
+    assert.equal((await api.pedir('GET', `/api/equipo/fotos/${fotoId}`, { token: t['diego@p3.mx'] })).status, 403);
+  });
+
+  it('casa propuesta y no aprobada: CASA_SIN_APROBAR hasta que RH la apruebe', async () => {
+    const r = await api.pedir('POST', '/api/yo/checadas', { token: t['sofia@p3.mx'], body: {
+      tipo: 'INICIO_DESCANSO', modalidad: 'DESDE_CASA', ...CASA_SOFIA, foto } });
+    assert.deepEqual(r.body.incidencias, ['CASA_SIN_APROBAR']);
+    const tab = await api.pedir('GET', '/api/equipo/tablero', { token: t['rh@p3.mx'] });
+    assert.deepEqual(tab.body.casas_por_aprobar.map((x: { nombre: string }) => x.nombre), ['Sofía Cruz']);
+    assert.equal((await api.pedir('PATCH', `/api/trabajadores/${SOFIA}`, { token: t['supervisor@p3.mx'], body: { aprobar_casa: true } })).status, 403);
+    assert.equal((await api.pedir('PATCH', `/api/trabajadores/${SOFIA}`, { token: t['rh@p3.mx'], body: { aprobar_casa: true } })).status, 200);
+    const r2 = await api.pedir('POST', '/api/yo/checadas', { token: t['sofia@p3.mx'], body: {
+      tipo: 'FIN_DESCANSO', modalidad: 'DESDE_CASA', ...CASA_SOFIA, foto } });
+    assert.deepEqual(r2.body.incidencias, []);
+  });
+
+  it('cambiar de casa vuelve a requerir aprobación; con GPS impreciso no se acepta', async () => {
+    const impreciso = await api.pedir('POST', '/api/yo/casa', { token: t['sofia@p3.mx'], body: {
+      lat: 20.58, lng: -100.37, precision_m: 900, direccion: 'Otra casa 55' } });
+    assert.equal(impreciso.status, 422);
+    const ok = await api.pedir('POST', '/api/yo/casa', { token: t['sofia@p3.mx'], body: {
+      lat: 20.58, lng: -100.37, precision_m: 20, direccion: 'Otra casa 55' } });
+    assert.equal(ok.body.estado, 'PROPUESTA');
+    const dia = await api.pedir('GET', '/api/yo/dia', { token: t['sofia@p3.mx'] });
+    assert.equal(dia.body.trabajador.casa.estado, 'PROPUESTA');
+    assert.equal(dia.body.foto_obligatoria, true);
   });
 });
 
@@ -194,7 +289,7 @@ describe('supervisión', () => {
     assert.equal(r.body.es_hoy, true);
     assert.equal(r.body.resumen.total, 6);
     const ana = r.body.equipo.find((x: { numero: string }) => x.numero === '001');
-    assert.equal(ana.estado, 'SALIO');
+    assert.equal(ana.estado, 'TRABAJANDO'); // volvió a entrar en la prueba del reloj adelantado
     assert.ok(ana.alertas.includes('FUERA_DE_ZONA'));
     const marco = r.body.equipo.find((x: { numero: string }) => x.numero === '014');
     assert.equal(marco.estado, 'EN_DESCANSO');

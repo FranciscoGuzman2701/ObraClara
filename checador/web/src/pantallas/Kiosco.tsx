@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ChecadaRegistrada, TipoChecada } from '../../../server/src/tipos';
 import { api, ApiError, mensajeDe, tokenKiosco } from '../api';
+import { abrirCamara, capturar, cerrarCamara } from '../camara';
 import { ALERTA, fechaLarga, hora, hoyEn, REGISTRADA, saludo } from '../jornada';
 import { Aviso, useAhora } from '../ui';
 
@@ -63,6 +64,16 @@ function Teclado({ info, alDesactivar }: { info: InfoKiosco; alDesactivar: () =>
   const [valor, setValor] = useState('');
   const [enviando, setEnviando] = useState(false);
   const reinicio = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // si la tableta tiene cámara, cada checada lleva foto: desanima prestar el PIN
+  const video = useRef<HTMLVideoElement>(null);
+  const [conCamara, setConCamara] = useState(false);
+  useEffect(() => {
+    let s: MediaStream | null = null;
+    let vivo = true;
+    if (video.current) abrirCamara(video.current).then((x) => { if (vivo) { s = x; setConCamara(true); } else cerrarCamara(x); })
+      .catch(() => setConCamara(false));
+    return () => { vivo = false; cerrarCamara(s); };
+  }, []);
 
   const volver = useCallback(() => { setPaso({ p: 'numero' }); setValor(''); }, []);
   // regresa solo al inicio: tras mostrar el resultado, o si alguien deja el PIN a medias
@@ -73,6 +84,10 @@ function Teclado({ info, alDesactivar }: { info: InfoKiosco; alDesactivar: () =>
     return () => clearTimeout(reinicio.current);
   }, [paso, valor, volver]);
 
+  const foto = () => {
+    if (!conCamara || !video.current) return {};
+    try { return { foto: { base64: capturar(video.current, 360, 0.55) } }; } catch { return {}; }
+  };
   const aceptar = useCallback(async () => {
     if (enviando || !valor) return;
     if (paso.p === 'numero') { setPaso({ p: 'pin', numero: valor }); setValor(''); return; }
@@ -80,7 +95,7 @@ function Teclado({ info, alDesactivar }: { info: InfoKiosco; alDesactivar: () =>
     setEnviando(true);
     try {
       const r = await api<ChecadaRegistrada & { siguientes: TipoChecada[] }>('/api/kiosco/checar', {
-        kiosco: true, body: { numero: paso.numero, pin: valor, client_uuid: crypto.randomUUID() } });
+        kiosco: true, body: { numero: paso.numero, pin: valor, client_uuid: crypto.randomUUID(), ...foto() } });
       setPaso({ p: 'listo', r });
     } catch (e) {
       setPaso({ p: 'error', mensaje: mensajeDe(e) });
@@ -88,7 +103,8 @@ function Teclado({ info, alDesactivar }: { info: InfoKiosco; alDesactivar: () =>
       setValor('');
       setEnviando(false);
     }
-  }, [enviando, paso, valor]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enviando, paso, valor, conCamara]);
 
   const tecla = useCallback((k: string) => {
     if (paso.p === 'listo' || paso.p === 'error') { volver(); return; }
@@ -113,6 +129,7 @@ function Teclado({ info, alDesactivar }: { info: InfoKiosco; alDesactivar: () =>
       <div className="lugar">{info.clave} · {info.centro}</div>
       <div className="reloj-grande">{hora(ahora)}</div>
       <div className="fecha">{fechaLarga(hoyEn())}</div>
+      <video ref={video} className="kiosco-camara" autoPlay muted playsInline style={{ display: conCamara ? 'block' : 'none' }} />
       <div className="kiosco-caja">
         {paso.p === 'listo' ? (
           <div className="resultado" onClick={volver}>

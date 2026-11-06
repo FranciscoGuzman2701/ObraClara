@@ -2,7 +2,8 @@
 export type Rol = 'ADMIN' | 'RH' | 'SUPERVISOR' | 'TRABAJADOR';
 export type TipoChecada = 'ENTRADA' | 'INICIO_DESCANSO' | 'FIN_DESCANSO' | 'SALIDA';
 export type Modalidad = 'LUGAR_FIJO' | 'DESDE_CASA' | 'MOVIL' | 'KIOSCO';
-export type Incidencia = 'FUERA_DE_ZONA' | 'SIN_UBICACION' | 'SECUENCIA' | 'RETARDO';
+export type Incidencia = 'FUERA_DE_ZONA' | 'SIN_UBICACION' | 'SECUENCIA' | 'RETARDO'
+  | 'FUERA_DE_CASA' | 'CASA_SIN_APROBAR' | 'DIA_NO_REMOTO' | 'ENVIO_DIFERIDO';
 /** Además de las de las checadas, el tablero avisa de quien no ha llegado a su hora. */
 export type Alerta = Incidencia | 'NO_HA_LLEGADO';
 export type EstadoAsistencia = 'TRABAJANDO' | 'EN_DESCANSO' | 'SALIO' | 'SIN_REGISTRO';
@@ -29,10 +30,17 @@ export interface ChecadaVista {
   distancia_m: number | null;
   nota: string | null;
   anulada: boolean;
+  recibido_en: string;
+  foto_id: string | null;
 }
 
+export interface Casa { lat: number; lng: number; radio_m: number; direccion: string | null; estado: 'PROPUESTA' | 'APROBADA' }
+
 export interface MiDia {
-  trabajador: NonNullable<InfoSesion['trabajador']> & { centro_lat: number | null; centro_lng: number | null; radio_m: number | null };
+  trabajador: NonNullable<InfoSesion['trabajador']> & { centro_lat: number | null; centro_lng: number | null; radio_m: number | null;
+    casa: Casa | null; dias_remotos: number[] };
+  /** la empresa pide selfie al checar desde casa o en movimiento */
+  foto_obligatoria: boolean;
   fecha: string;
   siguientes: TipoChecada[];
   bitacora: ChecadaVista[];
@@ -69,6 +77,7 @@ export interface Tablero {
   fecha: string;
   es_hoy: boolean;
   resumen: { trabajando: number; en_descanso: number; salieron: number; sin_registro: number; requieren_atencion: number; total: number };
+  casas_por_aprobar: { trabajador_id: string; nombre: string }[];
   equipo: FilaEquipo[];
   incidencias: { checada_id: string; trabajador: string; tipo: TipoChecada; ocurrido_en: string; incidencias: Incidencia[];
                  distancia_m: number | null }[];
@@ -79,7 +88,7 @@ export type ResumenEmpresa = Tablero['resumen'] & { id: string; clave: string; n
 export interface Trabajador {
   id: string; numero: string; nombre: string; puesto: string | null; centro_id: string | null; centro: string | null;
   modalidades: Modalidad[]; hora_entrada: string | null; jornada_min: number; tiene_pin: boolean; bloqueado: boolean;
-  cuenta_email: string | null; activo: boolean;
+  cuenta_email: string | null; activo: boolean; dias_remotos: number[]; casa: Casa | null; casa_actualizada_en: string | null;
 }
 
 export interface Centro { id: string; clave: string; nombre: string; direccion: string | null; lat: number | null;

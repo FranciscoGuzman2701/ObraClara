@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { Deps } from '../app.js';
 import type { Cliente } from '../db.js';
-import { motivoDe, noEncontrado, prohibido } from '../errores.js';
+import { invalido, motivoDe, noEncontrado, prohibido } from '../errores.js';
 import * as E from '../esquemas.js';
 import type { Miembro } from '../sesion.js';
 import { bitacora, fechaLocal, insertarChecada, siguientes } from '../servicios.js';
@@ -15,8 +15,12 @@ function trabajadorDe(m: Miembro): string {
 async function miDia(c: Cliente, trabajadorId: string): Promise<MiDia> {
   const { rows: [t] } = await c.query(
     `SELECT t.id, t.numero, t.nombre, t.modalidades::text[] AS modalidades, ct.nombre AS centro,
-            ct.lat AS centro_lat, ct.lng AS centro_lng, ct.radio_m
-       FROM trabajadores t LEFT JOIN centros ct ON ct.id = t.centro_id WHERE t.id = $1 AND t.activo`, [trabajadorId]);
+            ct.lat AS centro_lat, ct.lng AS centro_lng, ct.radio_m, t.dias_remotos::int[] AS dias_remotos,
+            CASE WHEN t.casa_estado IS NOT NULL THEN json_build_object('lat', t.casa_lat, 'lng', t.casa_lng,
+              'radio_m', t.casa_radio_m, 'direccion', t.casa_direccion, 'estado', t.casa_estado) END AS casa,
+            e.foto_sin_geocerca AS foto_obligatoria
+       FROM trabajadores t JOIN empresas e ON e.id = t.empresa_id LEFT JOIN centros ct ON ct.id = t.centro_id
+      WHERE t.id = $1 AND t.activo`, [trabajadorId]);
   if (!t) throw prohibido('Su ficha de trabajador está dada de baja');
   const fecha = await fechaLocal(c);
   const checadas = (await bitacora(c, { trabajadorId, fecha })).map(({ trabajador_id: _a, trabajador: _b, numero: _c, ...r }) => r);
@@ -26,7 +30,9 @@ async function miDia(c: Cliente, trabajadorId: string): Promise<MiDia> {
                         FROM (SELECT tipo, ocurrido_en FROM v_checadas WHERE trabajador_id = $1 AND fecha = $2
                                ORDER BY ocurrido_en DESC LIMIT 1) u
                        WHERE u.tipo IN ('ENTRADA', 'FIN_DESCANSO')), 0) AS minutos`, [trabajadorId, fecha]);
-  return { trabajador: t, fecha, siguientes: await siguientes(c, trabajadorId), bitacora: checadas, minutos_hoy: m.minutos };
+  const { foto_obligatoria, ...trabajador } = t;
+  return { trabajador, foto_obligatoria, fecha, siguientes: await siguientes(c, trabajadorId), bitacora: checadas,
+           minutos_hoy: m.minutos };
 }
 
 export function rutasTrabajador(app: FastifyInstance, { sesiones }: Deps) {
@@ -44,14 +50,14 @@ export function rutasTrabajador(app: FastifyInstance, { sesiones }: Deps) {
    * su SAVEPOINT (una rechazada no tumba a las demás). Reenviar es seguro.
    */
   app.post('/api/yo/checadas/lote', async (req) => {
-    const { checadas } = E.Lote.parse(req.body);
+    const { checadas, enviado_en } = E.Lote.parse(req.body);
     const resultados = await sesiones.conMiembro(req, null, async (c, m) => {
       const trabajadorId = trabajadorDe(m);
       const out: ResultadoLote[] = [];
       for (const ch of [...checadas].sort((a, b) => Date.parse(a.ocurrido_en) - Date.parse(b.ocurrido_en))) {
         await c.query('SAVEPOINT ch');
         try {
-          const r = await insertarChecada(c, m.empresaId, { ...ch, trabajadorId, medio: 'CELULAR', cuentaId: m.cuentaId });
+          const r = await insertarChecada(c, m.empresaId, { ...ch, enviado_en, trabajadorId, medio: 'CELULAR', cuentaId: m.cuentaId });
           await c.query('RELEASE SAVEPOINT ch');
           out.push({ client_uuid: ch.client_uuid, estado: r.duplicado ? 'DUPLICADA' : 'ACEPTADA', id: r.id });
         } catch (err) {
@@ -62,6 +68,23 @@ export function rutasTrabajador(app: FastifyInstance, { sesiones }: Deps) {
       return out;
     });
     return { resultados };
+  });
+
+  /**
+   * El trabajador propone su casa estando en ella. Queda PROPUESTA hasta que RH
+   * la aprueba; mientras, sus checadas desde casa salen con CASA_SIN_APROBAR.
+   * Cambiarla vuelve a requerir aprobación.
+   */
+  app.post('/api/yo/casa', (req) => {
+    const b = E.MiCasa.parse(req.body);
+    if (b.precision_m > 150) throw invalido('La ubicación es imprecisa; sal a un lugar abierto o activa el GPS e inténtalo de nuevo');
+    return sesiones.conMiembro(req, null, async (c, m) => {
+      await c.query(
+        `UPDATE trabajadores SET casa_lat = $2, casa_lng = $3, casa_direccion = $4, casa_estado = 'PROPUESTA',
+                casa_actualizada_en = now(), casa_aprobada_por = NULL WHERE id = $1`,
+        [trabajadorDe(m), b.lat, b.lng, b.direccion]);
+      return { estado: 'PROPUESTA' };
+    });
   });
 
   app.get('/api/yo/periodos', (req) => sesiones.conMiembro(req, null, async (c, m) => {

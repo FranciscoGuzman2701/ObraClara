@@ -55,7 +55,7 @@ h3 { font-size: 15px; margin: 0 0 8px; }
 .fila > .campo { flex: 1 1 160px; }
 .casillas { display: flex; gap: 8px; flex-wrap: wrap; }
 .casilla { display: inline-flex; gap: 6px; align-items: center; padding: 6px 10px; border: 1px solid var(--borde); border-radius: 8px; background: #fff; cursor: pointer; font-size: 14px; }
-.casilla input { margin: 0; }
+.casilla input, .campo .casilla input { margin: 0; width: auto; min-height: 0; padding: 0; }
 .aviso { padding: 10px 14px; border-radius: 10px; margin: 12px 0; font-size: 14px; }
 .aviso.error { background: var(--rojo-bg); color: var(--rojo); }
 .aviso.ok { background: var(--verde-bg); color: var(--verde); }
@@ -197,3 +197,12 @@ td.num { white-space: nowrap; }
   .persona small { display: none; }
   .avatar { display: none; }
 }
+
+/* ---------- desde casa ---------- */
+.ambar { color: var(--ambar); }
+.selfie { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 16px; background: #0f2240; transform: scaleX(-1); }
+.foto-mini { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; cursor: zoom-in; flex: none; border: 1px solid var(--borde); }
+.foto-grande { width: 100%; border-radius: 14px; }
+.kiosco-camara { width: 92px; height: 92px; border-radius: 50%; object-fit: cover; transform: scaleX(-1); border: 3px solid rgba(255,255,255,.25); margin: 0 auto 12px; display: block; }
+.chip.FUERA_DE_CASA, .chip.CASA_SIN_APROBAR { color: var(--rojo); background: var(--rojo-bg); }
+.chip.DIA_NO_REMOTO, .chip.ENVIO_DIFERIDO { color: var(--ambar); background: var(--ambar-bg); }

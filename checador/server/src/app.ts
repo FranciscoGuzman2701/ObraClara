@@ -20,7 +20,8 @@ export interface Deps {
 }
 
 export async function crearApp(config: Config, opciones: { log?: boolean } = {}) {
-  const app = Fastify({ logger: opciones.log ?? true, trustProxy: true });
+  // las checadas sin señal pueden traer fotos (≈50 KB c/u, hasta 60 por lote)
+  const app = Fastify({ logger: opciones.log ?? true, trustProxy: true, bodyLimit: 8 * 1024 * 1024 });
   const db = new Db(config.databaseUrl);
   const deps: Deps = { db, sesiones: new Sesiones(config.jwtSecret, db), freno: new Freno(8, 15 * 60_000) };
 

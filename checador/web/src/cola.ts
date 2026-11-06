@@ -11,6 +11,8 @@ export interface ChecadaLocal {
   lat?: number;
   lng?: number;
   precision_m?: number;
+  /** selfie en base64, cuando la empresa la pide (desde casa / móvil) */
+  foto?: { base64: string };
   estado: 'PENDIENTE' | 'RECHAZADA';
   motivo?: string;
 }
